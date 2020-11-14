@@ -20,11 +20,14 @@ TODO: Write a description here
 require "crystal-tds"
 ```
 
-TODO: Write usage instructions here
+`crystal-db` driver for Microsoft SQL Server based on the work of [FreeTDS](https://www.freetds.org/) and [tiny_tds](https://github.com/rails-sqlserver/tiny_tds)
 
 ## Development
 
-TODO: Write development instructions here
+```bash
+brew install freetds
+```
+
 
 ## Contributing
 
@@ -36,7 +39,7 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [your-name-here](https://github.com/your-github-user) - creator and maintainer
+- [Ulrich Kramer](https://github.com/wonderix) - creator and maintainer
 
 
 ## Testing
