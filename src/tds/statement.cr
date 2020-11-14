@@ -8,6 +8,15 @@ class TDS::Statement < DB::Statement
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
+    c = connection.as(TDS::Connection)
+    c.userdata.reset
+    cmd(c.process, command)
+    sqlsend(c.process) 
+    c.userdata.dbsql_sent = true
+    rows_affected : Int64 = 0
+    last_id : Int64 = 0
+    c.userdata.nonblocking_error.try { | e | raise e }
+    DB::ExecResult.new rows_affected, last_id
   end
 
   protected def do_close

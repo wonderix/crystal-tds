@@ -10,6 +10,15 @@ class UserData
   property dbcancel_sent = false
   property nonblocking = false
   property nonblocking_error : TDS::Exception?
+
+  def reset()
+    @timing_out = false
+    @dbsql_sent = false
+    @dbsqlok_sent = false
+    @dbcancel_sent = false
+    @nonblocking = false
+    @nonblocking_error = nil
+  end
 end
 
 
@@ -22,34 +31,28 @@ class TDS::Connection < DB::Connection
 
   def initialize(database)
     super
-    check init()
+    init()
     errorhandler = ->(dbproc : DBPROCESS*, severity : Int32, dberr  : Int32, oserr  : Int32, dberrstr  : UInt8*, oserrstr: UInt8*) do
-      ptr = getuserdata(dbproc)
-      exception = TDS::Exception.new(severity,dberr,oserr,dberrstr,oserrstr)
-      if ptr.null?
-        @@exception = exception
-        INT_CANCEL
-      else
-        Connection.on_error(dbproc,ptr.as(UserData*).value,exception)
-      end
+      Connection.on_error(dbproc,TDS::Exception.new(severity,dberr,oserr,dberrstr,oserrstr))
+    end
+    msghandler = ->(dbproc : DBPROCESS*, msgno: Int32, msgstate: Int32, severity: Int32, msgtext: UInt8*, srvname: UInt8*, procname: UInt8*, line: Int32) do 
+      Connection.on_message(dbproc,TDS::Exception.new(severity,msgno,msgstate,msgtext,Pointer(UInt8).null))
     end
     errhandle(errorhandler)
     login = login()
-    database.uri.user.try{ | s | check setluser(login, s) }
-    database.uri.password.try{ | s | check setlpwd(login, s) }
+    database.uri.user.try{ | s | setluser(login, s) }
+    database.uri.password.try{ | s | setlpwd(login, s) }
     host = database.uri.host || "localhost"
     port = database.uri.port || 1433 
-    check setlapp(login, "CrystalTds")
-    check setlversion(login, Version::V7_3)
-    check setlogintime(60)
-    check setlutf16(login, false)
-    check setlhost(login, host)
+    setlapp(login, "CrystalTds")
+    setlversion(login, Version::V7_3)
+    setlogintime(60)
+    setlutf16(login, false)
+    setlhost(login, host)
 
     @process = open(login,"#{host}:#{port}")
     raise @@exception || Exception.new() if @process.null?
     setuserdata(@process, pointerof(@userdata).as(BYTE*))
-
-
 
   rescue exc : Exception
     raise DB::ConnectionRefused.new if exc.dberr == ECONN
@@ -98,11 +101,13 @@ class TDS::Connection < DB::Connection
     self.prepared.exec "ROLLBACK TO #{name}"
   end
 
-  private def check(code : Int32 )
-    raise Exception.new(code) unless code == FreeTDS::SUCCEED
-  end
-    
-  def self.on_error(dbproc : DBPROCESS*, userdata : UserData, exception : Exception) : Int32 
+  def self.on_error(dbproc : DBPROCESS*, exception : Exception) : Int32 
+    ptr = getuserdata(dbproc)
+    if ptr.null?
+      @@exception = exception
+      return INT_CANCEL
+    end
+    userdata =ptr.as(UserData*).value
     result = INT_CANCEL
     do_cancel = false
     case exception.dberr
@@ -131,4 +136,19 @@ class TDS::Connection < DB::Connection
   
   end
 
+  def self.on_message(dbproc : DBPROCESS*, exception : Exception) : Int32
+    ptr = getuserdata(dbproc)
+    return 0 if ptr.null?
+    userdata =ptr.as(UserData*).value
+    is_message_an_error = exception.severity > 10 
+
+    if userdata.nonblocking
+      userdata.nonblocking_error = exception if userdata.nonblocking_error.nil?
+      if is_message_an_error && !dead(dbproc) && !userdata.closed
+        cancel(dbproc);
+        userdata.dbcancel_sent = true
+      end
+    end
+    return 0
+  end
 end

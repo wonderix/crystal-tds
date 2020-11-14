@@ -24,9 +24,11 @@ lib LibFreeTDS
   fun open = dbopen(login: LOGINREC* , server : UInt8*) : DBPROCESS *
   fun getuserdata =  dbgetuserdata(dbproc : DBPROCESS* ) : BYTE*
   fun setuserdata = dbsetuserdata(dbproc : DBPROCESS*, ptr : BYTE* );
-  fun freebuf = dbfreebuf(dbproc: DBPROCESS* )
-  fun cancel = dbcancel(dbproc: DBPROCESS* ) : RETCODE
-  fun dead = dbdead(dbproc: DBPROCESS* ): DBBOOL
+  fun freebuf = dbfreebuf(dbproc : DBPROCESS* )
+  fun cancel = dbcancel(dbproc : DBPROCESS* ) : RETCODE
+  fun dead = dbdead(dbproc : DBPROCESS* ): DBBOOL
+  fun cmd = dbcmd(dbproc : DBPROCESS* ,cmdstring: UInt8*):  RETCODE 
+  fun sqlsend = dbsqlsend(dbproc : DBPROCESS*):  RETCODE 
 
 end
 
@@ -82,7 +84,14 @@ module FreeTDS
   SETREADONLY = 1003
   SETDELEGATION = 1004
 
-  def init() : RETCODE LibFreeTDS.init(); end
+
+  macro check(name, *args)
+    ret = LibFreeTDS.{{name}}({{*args}})
+    raise Exception.new("{{name}}") unless ret == FreeTDS::SUCCEED
+  end
+
+
+  def init() check(init); end
   def login() : LOGINREC* LibFreeTDS.login(); end
   def open(x : LOGINREC* , server : String) : DBPROCESS* LibFreeTDS.open(x, server); end
   def errhandle(handler : EHANDLEFUNC) : EHANDLEFUNC LibFreeTDS.errhandle(handler); end
@@ -90,32 +99,34 @@ module FreeTDS
   def getuserdata(dbproc : DBPROCESS*) : BYTE*  LibFreeTDS.getuserdata(dbproc); end
   def setuserdata(dbproc : DBPROCESS*, ptr : BYTE* )  LibFreeTDS.setuserdata(dbproc, ptr); end
   def freebuf(dbproc : DBPROCESS*)  LibFreeTDS.freebuf(dbproc); end
-  def cancel(dbproc : DBPROCESS*) : RETCODE  LibFreeTDS.cancel(dbproc); end
+  def cancel(dbproc : DBPROCESS*) check(cancel,dbproc); end
   def dead(dbproc : DBPROCESS*) : Bool  LibFreeTDS.dead(dbproc) != 0 ; end
+  def cmd(dbproc : DBPROCESS* ,cmdstring : String) check(cmd, dbproc, cmdstring) ; end
+  def sqlsend(dbproc : DBPROCESS*) check(sqlsend,dbproc); end
 
-  def setlogintime(seconds : Int32) : RETCODE  LibFreeTDS.setlogintime(seconds); end
-  def setlversion(x : LOGINREC*, y : Version) : RETCODE  LibFreeTDS.setlversion(x, y.value); end
-  def setlhost(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETHOST); end
-  def setluser(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y, SETUSER); end
-  def setlpwd(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETPWD); end
-  def setlhid(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETHID); end
-  def setlapp(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETAPP); end
-  def setlsecure(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETBCP); end
-  def setlnatlang(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETNATLANG); end
-  def setlnoshort(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETNOSHORT); end
-  def setlhier(x : LOGINREC*, y : Int32) : RETCODE  LibFreeTDS.setlshort(x, y,SETHIER); end
-  def setlcharset(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETCHARSET); end
-  def setlpacket(x : LOGINREC*, y : Int32) : RETCODE  LibFreeTDS.setlshort(x, y,SETPACKET); end
-  def setlencrypt(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETENCRYPT); end
-  def setllabeled(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETLABELED); end
-  def setldbname(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,NAME); end
-  def setlnetworkauth(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETNETWORKAUTH); end
-  def setlmutualauth(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETMUTUALAUTH); end
-  def setlserverprincipal(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETSERVERPRINCIPAL); end
-  def setlutf16(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETUTF16); end
-  def setlntlmv2(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETNTLMV2); end
-  def setlreadonly(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETREADONLY); end
-  def setldelegation(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETDELEGATION); end
+  def setlogintime(seconds : Int32) check(setlogintime,seconds); end
+  def setlversion(x : LOGINREC*, y : Version) check(setlversion,x, y.value) end
+  def setlhost(x : LOGINREC*, y : String) check(setlname,x, y,SETHOST); end
+  def setluser(x : LOGINREC*, y : String) check(setlname,x, y, SETUSER); end
+  def setlpwd(x : LOGINREC*, y : String) check(setlname,x, y,SETPWD); end
+  def setlhid(x : LOGINREC*, y : String) check(setlname,x, y,SETHID); end
+  def setlapp(x : LOGINREC*, y : String) check(setlname,x, y,SETAPP); end
+  def setlsecure(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETBCP); end
+  def setlnatlang(x : LOGINREC*, y : String) check(setlname,x, y,SETNATLANG); end
+  def setlnoshort(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETNOSHORT); end
+  def setlhier(x : LOGINREC*, y : Int32) check(setlshort,x, y,SETHIER); end
+  def setlcharset(x : LOGINREC*, y : String) check(setlname,x, y,SETCHARSET); end
+  def setlpacket(x : LOGINREC*, y : Int32) check(setlshort,x, y,SETPACKET); end
+  def setlencrypt(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETENCRYPT); end
+  def setllabeled(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETLABELED); end
+  def setldbname(x : LOGINREC*, y : String) check(setlname,x, y,NAME); end
+  def setlnetworkauth(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETNETWORKAUTH); end
+  def setlmutualauth(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETMUTUALAUTH); end
+  def setlserverprincipal(x : LOGINREC*, y : String) check(setlname,x, y,SETSERVERPRINCIPAL); end
+  def setlutf16(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0 ,SETUTF16); end
+  def setlntlmv2(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETNTLMV2); end
+  def setlreadonly(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETREADONLY); end
+  def setldelegation(x : LOGINREC*, y : Bool) check(setlbool,x, y ? 1 : 0,SETDELEGATION); end
 
 
   ESEOF = 20017	# Unexpected EOF from SQL Server.
