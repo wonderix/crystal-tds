@@ -1,0 +1,14 @@
+name: crystal-tds
+version: 0.1.0
+
+dependencies:
+  db:
+    github: crystal-lang/crystal-db
+    version: ~> 0.10.0
+
+authors:
+  - Ulrich Kramer <ulrich.kramer@web.de>
+
+crystal: 0.35.1
+
+license: MIT
