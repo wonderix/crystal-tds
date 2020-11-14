@@ -1,19 +1,65 @@
 
 @[Link("sybdb")]
 lib LibFreeTDS
-  type RETCODE = Int32
-  type LOGINREC = Void*
+  alias RETCODE = Int32
+  alias LOGINREC = Void
+  alias DBPROCESS = Void
+  alias BYTE = UInt8
+  alias DBBOOL = UInt8
 
-  fun login = dblogin() : LOGINREC
-  fun setlname = dbsetlname(login : LOGINREC, value : UInt8*, which : Int32) : RETCODE
-  fun setlbool = dbsetlbool(login : LOGINREC, value : Int32, which: Int32) : RETCODE
-  fun setlshort = dbsetlshort(login : LOGINREC, value : Int32, which : Int32) : RETCODE
-  fun setllong = dbsetllong(login : LOGINREC, value : Int64, which : Int32) : RETCODE
-  fun setlversion = dbsetlversion (login : LOGINREC, version : UInt8) : RETCODE
+  alias EHANDLEFUNC = (DBPROCESS*, Int32, Int32, Int32, UInt8*, UInt8*) -> Int32
+  alias MHANDLEFUNC = (DBPROCESS*, Int32, Int32, Int32, UInt8*, UInt8*, UInt8*, Int32) -> Int32
+
+  fun init = dbinit() : RETCODE
+
+  fun login = dblogin() : LOGINREC*
+  fun setlname = dbsetlname(login : LOGINREC*, value : UInt8*, which : Int32) : RETCODE
+  fun setlbool = dbsetlbool(login : LOGINREC*, value : Int32, which: Int32) : RETCODE
+  fun setlshort = dbsetlshort(login : LOGINREC*, value : Int32, which : Int32) : RETCODE
+  fun setllong = dbsetllong(login : LOGINREC*, value : Int64, which : Int32) : RETCODE
+  fun setlversion = dbsetlversion (login : LOGINREC*, version : UInt8) : RETCODE
+  fun msghandle =  dbmsghandle(handler: MHANDLEFUNC) : MHANDLEFUNC
+  fun errhandle =  dberrhandle(handler: EHANDLEFUNC) : EHANDLEFUNC
+  fun setlogintime = dbsetlogintime(seconds : Int32) : RETCODE
+  fun open = dbopen(login: LOGINREC* , server : UInt8*) : DBPROCESS *
+  fun getuserdata =  dbgetuserdata(dbproc : DBPROCESS* ) : BYTE*
+  fun setuserdata = dbsetuserdata(dbproc : DBPROCESS*, ptr : BYTE* );
+  fun freebuf = dbfreebuf(dbproc: DBPROCESS* )
+  fun cancel = dbcancel(dbproc: DBPROCESS* ) : RETCODE
+  fun dead = dbdead(dbproc: DBPROCESS* ): DBBOOL
 
 end
 
 module FreeTDS
+
+  alias RETCODE = LibFreeTDS::RETCODE
+  alias LOGINREC = LibFreeTDS::LOGINREC
+  alias DBPROCESS = LibFreeTDS::DBPROCESS
+  alias BYTE = LibFreeTDS::BYTE
+  alias EHANDLEFUNC = LibFreeTDS::EHANDLEFUNC
+  alias MHANDLEFUNC = LibFreeTDS::MHANDLEFUNC
+
+
+  enum Version
+    Unknown  = 0
+    V4_6     = 1
+    V100     = 2
+    V4_2     = 3
+    V7_0     = 4
+    V7_1     = 5
+    V7_2     = 6
+    V7_3     = 7
+  end
+
+
+  INT_EXIT	= 0
+  INT_CONTINUE = 1
+  INT_CANCEL = 2
+  INT_TIMEOUT = 3
+
+  SUCCEED = 1
+  FAIL = 0
+
   SETHOST = 1
   SETUSER = 2
   SETPWD = 3
@@ -35,27 +81,53 @@ module FreeTDS
   SETNTLMV2 = 1002
   SETREADONLY = 1003
   SETDELEGATION = 1004
-  def setlhost(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETHOST); end
-  def setluser(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x, y, SETUSER); end
-  def setlpwd(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETPWD); end
-  def setlhid(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETHID); end
-  def setlapp(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETAPP); end
-  def setlsecure(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETBCP); end
-  def setlnatlang(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETNATLANG); end
-  def setlnoshort(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETNOSHORT); end
-  def setlhier(x : LOGINREC,y : Int32) : RETCODE  setlshort(x,y,SETHIER); end
-  def setlcharset(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETCHARSET); end
-  def setlpacket(x : LOGINREC,y : Int32) : RETCODE  setlshort(x,y,SETPACKET); end
-  def setlencrypt(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETENCRYPT); end
-  def setllabeled(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETLABELED); end
-  def setldbname(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,NAME); end
-  def setlnetworkauth(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETNETWORKAUTH); end
-  def setlmutualauth(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETMUTUALAUTH); end
-  def setlserverprincipal(x : LOGINREC,y : UInt8*) : RETCODE  setlname(x,y,SETSERVERPRINCIPAL); end
-  def setlutf16(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETUTF16); end
-  def setlntlmv2(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETNTLMV2); end
-  def setlreadonly(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETREADONLY); end
-  def setldelegation(x : LOGINREC,y : Bool) : RETCODE  setlbool(x,y,SETDELEGATION); end
+
+  def init() : RETCODE LibFreeTDS.init(); end
+  def login() : LOGINREC* LibFreeTDS.login(); end
+  def open(x : LOGINREC* , server : String) : DBPROCESS* LibFreeTDS.open(x, server); end
+  def errhandle(handler : EHANDLEFUNC) : EHANDLEFUNC LibFreeTDS.errhandle(handler); end
+
+  def getuserdata(dbproc : DBPROCESS*) : BYTE*  LibFreeTDS.getuserdata(dbproc); end
+  def setuserdata(dbproc : DBPROCESS*, ptr : BYTE* )  LibFreeTDS.setuserdata(dbproc, ptr); end
+  def freebuf(dbproc : DBPROCESS*)  LibFreeTDS.freebuf(dbproc); end
+  def cancel(dbproc : DBPROCESS*) : RETCODE  LibFreeTDS.cancel(dbproc); end
+  def dead(dbproc : DBPROCESS*) : Bool  LibFreeTDS.dead(dbproc) != 0 ; end
+
+  def setlogintime(seconds : Int32) : RETCODE  LibFreeTDS.setlogintime(seconds); end
+  def setlversion(x : LOGINREC*, y : Version) : RETCODE  LibFreeTDS.setlversion(x, y.value); end
+  def setlhost(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETHOST); end
+  def setluser(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y, SETUSER); end
+  def setlpwd(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETPWD); end
+  def setlhid(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETHID); end
+  def setlapp(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETAPP); end
+  def setlsecure(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETBCP); end
+  def setlnatlang(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETNATLANG); end
+  def setlnoshort(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETNOSHORT); end
+  def setlhier(x : LOGINREC*, y : Int32) : RETCODE  LibFreeTDS.setlshort(x, y,SETHIER); end
+  def setlcharset(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETCHARSET); end
+  def setlpacket(x : LOGINREC*, y : Int32) : RETCODE  LibFreeTDS.setlshort(x, y,SETPACKET); end
+  def setlencrypt(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETENCRYPT); end
+  def setllabeled(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETLABELED); end
+  def setldbname(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,NAME); end
+  def setlnetworkauth(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETNETWORKAUTH); end
+  def setlmutualauth(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETMUTUALAUTH); end
+  def setlserverprincipal(x : LOGINREC*, y : String) : RETCODE  LibFreeTDS.setlname(x, y,SETSERVERPRINCIPAL); end
+  def setlutf16(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETUTF16); end
+  def setlntlmv2(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETNTLMV2); end
+  def setlreadonly(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETREADONLY); end
+  def setldelegation(x : LOGINREC*, y : Bool) : RETCODE  LibFreeTDS.setlbool(x, y,SETDELEGATION); end
+
+
+  ESEOF = 20017	# Unexpected EOF from SQL Server.
+  ESMSG = 20018	# General SQL Server error: Check messages from the SQL Server.
+  EICONVI = 2403	# Some character(s) could not be converted into client's character set.  Unconverted bytes were changed to question marks ('?').
+  EICONVO = 2402	# Error converting characters into server's character set. Some character(s) could not be converted.
+  ETIME = 20003	# SQL Server connection timed out.
+  EWRIT = 20006	# Write to SQL Server failed.
+  EVERDOWN = 100 # indicating the connection can only be v7.1
+  ECONN  = 20009	# Unable to connect socket -- SQL Server is unavailable or does not exist.
+
+
 end
 
  
