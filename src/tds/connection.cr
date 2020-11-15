@@ -1,62 +1,38 @@
-require "./lib_freetds"
-include FreeTDS
+require "./tds_core"
+include Tds::Core
 
-class UserData
-  property closed = false
-  property timing_out = false
-  property dbsql_sent = false
-  property dbsqlok_sent = false
-  property dbsqlok_retcode = SUCCEED
-  property dbcancel_sent = false
-  property nonblocking = false
-  property nonblocking_error : TDS::Exception?
-
-  def reset()
-    @timing_out = false
-    @dbsql_sent = false
-    @dbsqlok_sent = false
-    @dbcancel_sent = false
-    @nonblocking = false
-    @nonblocking_error = nil
-  end
-end
 
 
 class TDS::Connection < DB::Connection
 
-  @@exception : TDS::Exception? = nil
 
-  property process = Pointer(DBPROCESS).null
-  property userdata = UserData.new()
 
   def initialize(database)
     super
-    init()
-    errorhandler = ->(dbproc : DBPROCESS*, severity : Int32, dberr  : Int32, oserr  : Int32, dberrstr  : UInt8*, oserrstr: UInt8*) do
-      Connection.on_error(dbproc,TDS::Exception.new(severity,dberr,oserr,dberrstr,oserrstr))
-    end
-    msghandler = ->(dbproc : DBPROCESS*, msgno: Int32, msgstate: Int32, severity: Int32, msgtext: UInt8*, srvname: UInt8*, procname: UInt8*, line: Int32) do 
-      Connection.on_message(dbproc,TDS::Exception.new(severity,msgno,msgstate,msgtext,Pointer(UInt8).null))
-    end
-    errhandle(errorhandler)
-    login = login()
-    database.uri.user.try{ | s | setluser(login, s) }
-    database.uri.password.try{ | s | setlpwd(login, s) }
+    user = database.uri.user
+    password = database.uri.password
     host = database.uri.host || "localhost"
     port = database.uri.port || 1433 
-    setlapp(login, "CrystalTds")
-    setlversion(login, Version::V7_3)
-    setlogintime(60)
-    setlutf16(login, false)
-    setlhost(login, host)
+    @version = Version::V7_3
+    @app_name = "crystal-tds"
+    @socket = TCPSocket.new(host, port)
+    case @version
+    when V4_2,  V5_0, V7_0 , V8_0, V8_1
+      raise Exception.new("Unsupported version")
+    when V9_0
+      send_login_pkt()
+    end
+  
 
-    @process = open(login,"#{host}:#{port}")
-    raise @@exception || Exception.new() if @process.null?
-    setuserdata(@process, pointerof(@userdata).as(BYTE*))
-
+ 
   rescue exc : Exception
     raise DB::ConnectionRefused.new if exc.dberr == ECONN
     raise exc
+  end
+
+
+  def send_login_pkt()
+    send_pre_login(@socket,"instance")
   end
 
   def build_prepared_statement(query) : Statement
