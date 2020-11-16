@@ -2,7 +2,7 @@
 require "./byte_format"
 require "./version"
 
-class Tds::PreLoginSerializer
+class TDS::PreLoginSerializer
   NETLIB9 = Bytes[9, 0, 0, 0, 0, 0 ]
   @buffer = IO::Memory.new()
   @sizes = Array(UInt16).new()
@@ -80,17 +80,17 @@ class Tds::PreLoginSerializer
 
 end
 
-class Tds::PreLoginRequest
+class TDS::PreLoginRequest
   NETLIB9 = Bytes[9, 0, 0, 0, 0, 0 ]
 
   getter force_encryption
   getter instance
 
-  def initialize(@instance : String, @force_encryption : Bool, @process_id : UInt32 , @netlib : Bytes = NETLIB9, @mars_enabled = false)
+  def initialize(@instance = "MSSQLServer", @force_encryption = false , @process_id = 0_u32 , @netlib : Bytes = NETLIB9, @mars_enabled = false)
   end
 
   def write(io : IO)
-    info_io = Tds::PreLoginSerializer.new(io)
+    info_io = TDS::PreLoginSerializer.new(io)
     info_io.write(@netlib)
     info_io.write(@force_encryption)
     info_io.write(@instance)
@@ -105,7 +105,7 @@ class Tds::PreLoginRequest
     info_io.read(netlib)
     force_encryption = info_io.read(Bool)
     instance = info_io.read(String)
-    return Tds::PreLoginRequest.new(instance,force_encryption,0,netlib)
+    return PreLoginRequest.new(instance: instance ,force_encryption: force_encryption ,netlib: netlib)
   end
 
 end

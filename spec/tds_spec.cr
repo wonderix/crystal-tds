@@ -1,6 +1,7 @@
 require "./spec_helper"
 
-describe Tds do
+
+describe TDS do
 
   # it "connects" do
   #   DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|

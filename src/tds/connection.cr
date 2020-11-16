@@ -1,5 +1,4 @@
-require "./tds_core"
-include Tds::Core
+require "./pre_login_request"
 
 
 
@@ -18,9 +17,11 @@ class TDS::Connection < DB::Connection
     @socket = TCPSocket.new(host, port)
     case @version
     when V4_2,  V5_0, V7_0 , V8_0, V8_1
-      raise Exception.new("Unsupported version")
+      raise ::Exception.new("Unsupported version")
     when V9_0
-      send_login_pkt()
+      PacketIO.send(@socket,18) do | io |
+        PreLoginRequest.new().write(io)
+      end
     end
   
 

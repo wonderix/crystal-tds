@@ -3,18 +3,18 @@ require "./byte_format"
 require "./version"
 
 
-class Tds::PacketIO < IO
+class TDS::PacketIO < IO
   MIN_SIZE = 512
   HDR_LEN = 8_u16
   @buffer = Bytes.new(MIN_SIZE)
   @pos = HDR_LEN
 
 
-  def initialize(@io : IO, @type : UInt8, @version = Tds::Version::V9_0)
+  def initialize(@io : IO, @type : UInt8, @version = TDS::Version::V9_0)
   end
 
   def read(slice : Bytes)
-    raise Exception.new("Not implemented")
+    raise ::Exception.new("Not implemented")
   end
 
   def write(slice : Bytes): Nil
@@ -51,6 +51,12 @@ class Tds::PacketIO < IO
     @buffer[7] = 0
     @io.write(@buffer[0,@pos])
     @pos = HDR_LEN
+  end
+
+  def self.send(io : IO, type : UInt8, version = TDS::Version::V9_0, &block : IO -> Nil)
+    packet_io =  PacketIO.new(io,type,version)
+    yield packet_io
+    packet_io.flush()
   end
 
 end

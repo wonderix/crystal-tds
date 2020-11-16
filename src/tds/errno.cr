@@ -5,7 +5,7 @@ require "./packet_io"
 require "./pre_login_request"
 
 
-module Tds
+module TDS
   
   ESEOF = 20017	# Unexpected EOF from SQL Server.
   ESMSG = 20018	# General SQL Server error: Check messages from the SQL Server.

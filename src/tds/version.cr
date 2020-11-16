@@ -1,6 +1,6 @@
 
 
-enum Tds::Version
+enum TDS::Version
   V4_2     = 1
   V5_0     = 2
   V7_0     = 3

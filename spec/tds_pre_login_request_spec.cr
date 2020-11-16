@@ -1,6 +1,7 @@
 require "./spec_helper"
 
-include Tds::Core
+
+include TDS
 
 DATA = Bytes[0x12, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00, 
 0x00, 0x00, 0x1a, 0x00, 0x06, 0x01, 0x00, 0x20, 
@@ -11,17 +12,20 @@ DATA = Bytes[0x12, 0x01, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x00,
 0x72, 0x76, 0x65, 0x72, 0x00, 0x00, 0x00, 0x00, 
 0x01, 0x00 ]
 
-describe Tds::Core do
+
+describe PreLoginRequest do
 
   it "pre login is correct" do
     io = IO::Memory.new()
-    send_pre_login(io, process_id = 1_u32 )
+    PacketIO.send(io, 18 ) do | io |
+      PreLoginRequest.new( process_id: 1_u32).write(io)
+    end
     io.to_slice[0,io.pos].should eq DATA
   end
 
   it "reads pre login correct" do 
     io = IO::Memory.new(DATA[8..-1])
-    info = Tds::PreLoginRequest.from_io(io)
+    info = PreLoginRequest.from_io(io)
     info.force_encryption.should be_false
     info.instance.should eq "MSSQLServer"
   end
