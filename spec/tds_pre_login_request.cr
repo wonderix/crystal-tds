@@ -21,7 +21,7 @@ describe Tds::Core do
 
   it "reads pre login correct" do 
     io = IO::Memory.new(DATA[8..-1])
-    info = PreLoginInfo.from_io(io)
+    info = Tds::PreLoginRequest.from_io(io)
     info.force_encryption.should be_false
     info.instance.should eq "MSSQLServer"
   end
