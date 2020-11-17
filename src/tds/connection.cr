@@ -22,6 +22,10 @@ class TDS::Connection < DB::Connection
       PacketIO.send(@socket,18) do | io |
         PreLoginRequest.new().write(io)
       end
+    when V7_1
+      PacketIO.send(@socket,16) do | io |
+        LoginRequest.new(version=@version).write(io)
+      end
     end
   
 

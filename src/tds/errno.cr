@@ -1,8 +1,5 @@
 
 
-require "./byte_format"
-require "./packet_io"
-require "./pre_login_request"
 
 
 module TDS

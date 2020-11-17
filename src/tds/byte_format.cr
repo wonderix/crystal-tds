@@ -1,4 +1,0 @@
-
-
-ENCODING = IO::ByteFormat::BigEndian
-

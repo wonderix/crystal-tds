@@ -1,8 +1,9 @@
 
-require "./byte_format"
 require "./version"
 
 class TDS::PreLoginSerializer
+  ENCODING = IO::ByteFormat::BigEndian
+
   NETLIB9 = Bytes[9, 0, 0, 0, 0, 0 ]
   @buffer = IO::Memory.new()
   @sizes = Array(UInt16).new()
