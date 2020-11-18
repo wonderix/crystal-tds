@@ -1,38 +1,40 @@
 require "./pre_login_request"
+require "socket"
 
 
 
 class TDS::Connection < DB::Connection
 
-
+  @version = Version::V7_1
+  @socket : TCPSocket
 
   def initialize(database)
     super
-    user = database.uri.user
-    password = database.uri.password
+    user = database.uri.user || ""
+    password = database.uri.password || ""
     host = database.uri.host || "localhost"
     port = database.uri.port || 1433 
-    @version = Version::V7_3
-    @app_name = "crystal-tds"
-    @socket = TCPSocket.new(host, port)
+    begin
+      socket = TCPSocket.new(host, port)
+    rescue exc : Socket::ConnectError
+      raise DB::ConnectionRefused.new
+    end
+    @socket = socket
     case @version
-    when V4_2,  V5_0, V7_0 , V8_0, V8_1
-      raise ::Exception.new("Unsupported version")
-    when V9_0
-      PacketIO.send(@socket,18) do | io |
+    when Version::V9_0
+      PacketIO.send(@socket,PacketType::PRE_LOGIN) do | io |
         PreLoginRequest.new().write(io)
       end
-    when V7_1
-      PacketIO.send(@socket,16) do | io |
-        LoginRequest.new(version=@version).write(io)
+    when Version::V7_1
+      PacketIO.send(@socket,PacketType::MSLOGIN) do | io |
+        LoginRequest.new(user, password, appname: "crystal-tds").write(io,@version)
       end
+      PacketIO.recv(@socket) do | io |
+        Token.each_from_io(io) { |i| }
+      end
+    else
+      raise ::Exception.new("Unsupported version #{@version}")
     end
-  
-
- 
-  rescue exc : Exception
-    raise DB::ConnectionRefused.new if exc.dberr == ECONN
-    raise exc
   end
 
 

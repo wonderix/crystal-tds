@@ -2,9 +2,17 @@
 require "./version"
 
 enum TDS::PacketType
-  UNKNOWN   = 0x00
-  LOGIN     = 0x10
-  PRE_LOGIN = 0x12
+  UNKNOWN   = 0
+  QUERY = 1
+  LOGIN = 2
+  RPC = 3
+  REPLY = 4
+  CANCEL = 6
+  MSDTC = 14
+  SYBQUERY = 15
+  MSLOGIN = 16
+  NTLMAUTH = 17
+  PRE_LOGIN = 18
 end
 
 class TDS::PacketIO < IO
@@ -19,6 +27,20 @@ class TDS::PacketIO < IO
 
   def initialize(@io : IO, @type : PacketType)
   end
+
+  def pos
+    return @read_pos
+  end
+
+  def seek(offset, whence : Seek = IO::Seek::Set)
+    case whence
+    when IO::Seek::Current
+      @read_pos += offset
+    else
+      raise IO::Error.new "Unable to seek"
+    end
+  end
+
 
   def read(slice : Bytes)
     
