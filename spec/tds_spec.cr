@@ -7,7 +7,7 @@ describe TDS do
     DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
     end
   end
-  it "raises DB::ConnectionRefused" , focus: true  do
+  it "raises DB::ConnectionRefused"  do
     expect_raises(DB::ConnectionRefused) do
       DB.open "tds://sa:wrong-password@localhost:1433" do |db|
       end

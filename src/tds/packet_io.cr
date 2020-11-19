@@ -2,7 +2,7 @@
 require "./version"
 
 enum TDS::PacketType
-  UNKNOWN   = 0
+  RECEIVE   = 0
   QUERY = 1
   LOGIN = 2
   RPC = 3
@@ -29,13 +29,21 @@ class TDS::PacketIO < IO
   end
 
   def pos
-    return @read_pos
+    if @type == PacketType::RECEIVE
+      return @read_pos
+    else
+      return @write_pos
+    end
   end
 
   def seek(offset, whence : Seek = IO::Seek::Set)
     case whence
     when IO::Seek::Current
-      @read_pos += offset
+      if @type == PacketType::RECEIVE
+        @read_pos += offset
+      else
+        @write_pos += offset
+      end
     else
       raise IO::Error.new "Unable to seek"
     end
@@ -107,7 +115,7 @@ class TDS::PacketIO < IO
   end
 
   def self.recv(io : IO, &block : IO -> Nil)
-    packet_io =  PacketIO.new(io,PacketType::UNKNOWN)
+    packet_io =  PacketIO.new(io,PacketType::RECEIVE)
     yield packet_io
   end
 

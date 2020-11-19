@@ -53,9 +53,15 @@ module TDS::Token
       when Type::DONE, Type::DONEINPROC, Type::DONEPROC
         return
       when Type::ERROR
-        raise Error.from_io(io)
+        token = InfoOrError.from_io(io,type)
+        case token.number
+        when EPERM
+          raise DB::ConnectionRefused.new(token.message)
+        else
+          raise ::Exception.new("Error #{token.number}: #{token.message}")
+        end
       when Type::INFO
-        yield Error.from_io(io)
+        yield InfoOrError.from_io(io, type)
       when Type::ENVCHANGE
       when Type::LOGINACK
       else
@@ -65,24 +71,23 @@ module TDS::Token
     end
   end
 
-  class Error < ::Exception
 
-    def initialize(message)
-      super(message)
+  struct InfoOrError
+
+    getter type
+    getter message
+    getter number
+
+    def initialize(@type : Type, @message : String, @number : Int32)
     end
 
-    def self.from_io(io : IO)
+    def self.from_io(io : IO, type : Type)
       number = Int32.from_io(io,ENCODING)
       state = UInt8.from_io(io,ENCODING)
       severity = UInt8.from_io(io,ENCODING)
       message_len = UInt16.from_io(io,ENCODING)
       message = UTF16_IO.read(io,message_len,ENCODING)
-      case number
-      when EPERM
-        return DB::ConnectionRefused.new(message)
-      else
-        Error.new(message)
-      end
+      return InfoOrError.new(type: type, message: message, number: number)
     end
   end
 end
