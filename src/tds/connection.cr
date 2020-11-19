@@ -8,6 +8,8 @@ class TDS::Connection < DB::Connection
   @version = Version::V7_1
   @socket : TCPSocket
 
+  getter socket
+  
   def initialize(database)
     super
     user = database.uri.user || ""

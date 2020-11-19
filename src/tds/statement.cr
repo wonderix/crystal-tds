@@ -1,10 +1,20 @@
+require "./utf16_io"
 
 class TDS::Statement < DB::Statement
+  ENCODING = IO::ByteFormat::LittleEndian
+
   def initialize(connection, command)
     super(connection, command)
   end
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
+    PacketIO.send(connection.socket,PacketType::QUERY) do | io |
+      UTF16_IO.write(io,command,ENCODING)
+    end
+    PacketIO.recv(connection.socket) do | io |
+      Token.each_from_io(io) { |i| p i }
+    end
+    return ResultSet.new(self)
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult

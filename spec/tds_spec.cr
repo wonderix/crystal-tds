@@ -19,9 +19,10 @@ describe TDS do
       end
     end
   end
-  # it "executes statements" do 
-  #   DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
-  #     db.exec "create table contacts (name text, age integer)"
-  #   end
-  # end
+  it "executes query", focus: true do 
+    DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
+      db.query "SELECT @@MAX_PRECISION\r\nSET TRANSACTION ISOLATION LEVEL READ COMMITTED\r\nSET IMPLICIT_TRANSACTIONS OFF\r\nSET QUOTED_IDENTIFIER ON\r\nSET TEXTSIZE 2147483647" do |rs|
+      end
+    end
+  end
 end
