@@ -20,7 +20,7 @@ describe TDS do
   it "executes query", focus: true do
     DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
       rows = 0
-      db.query "SELECT @@MAX_PRECISION, @@LANGUAGE, @@VERSION, @@LOCK_TIMEOUT, @@MAX_CONNECTIONS, @@NESTLEVEL, @@OPTIONS, @@REMSERVER, @@SERVERNAME, @@SERVICENAME, @@SPID, @@TEXTSIZE, @@VERSION " do |rs|
+      db.query "SELECT @@MAX_PRECISION, @@LANGUAGE, @@VERSION, @@LOCK_TIMEOUT, @@MAX_CONNECTIONS, @@NESTLEVEL, @@OPTIONS, @@REMSERVER, @@SERVERNAME, @@SERVICENAME, @@SPID, @@TEXTSIZE, @@VERSION, CURRENT_TIMESTAMP " do |rs|
         rs.each do
           rs.read(Int8).should eq 38_i8
           rs.read(String).empty?.should be_false

@@ -1,6 +1,9 @@
 require "./version"
+require "./trace"
 
 class TDS::PacketIO < IO
+  include Trace
+
   enum Type
     QUERY     =  1
     LOGIN     =  2
@@ -111,13 +114,19 @@ class TDS::PacketIO < IO
   end
 
   def self.send(io : IO, type : Type, size = MIN_SIZE, &block : IO -> Nil)
+    trace(type)
+    trace_push()
     packet_io = PacketIO.new(io, type, Mode::WRITE, size)
     yield packet_io
     packet_io.flush
+    trace_pop()
   end
 
   def self.recv(io : IO, expected_type : Type, size = MIN_SIZE, &block : IO -> Nil)
+    trace(expected_type)
+    trace_push()
     packet_io = PacketIO.new(io, expected_type, Mode::READ, size)
     yield packet_io
+    trace_pop()
   end
 end

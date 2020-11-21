@@ -1,7 +1,10 @@
 require "./utf16_io.cr"
 require "./errno.cr"
+require "./trace.cr"
 
 module TDS::Token
+  include Trace
+
   ENCODING = IO::ByteFormat::LittleEndian
 
   enum Type
@@ -100,9 +103,10 @@ module TDS::Token
     end
   end
 
-  alias Value = Int8 | Int16 | Int32 | Int64 | Float64 | String
+  alias Value = Int8 | Int16 | Int32 | Int64 | Float64 | String | Time | Nil
 
   struct ColumnMetaData
+    include Trace
     enum Type
       CHAR       = 0x2F
       VARCHAR    = 0x27
@@ -169,9 +173,12 @@ module TDS::Token
       user_type = UInt16.from_io(io, ENCODING)
       flags = UInt16.from_io(io, ENCODING)
       type = Type.new(Int32.new(io.read_byte.not_nil!))
-      p type
+      trace(type)
+      trace_push()
+      trace(flags)
+      trace(user_type)
       case type
-      when Type::INT1, Type::INT2, Type::INT4, Type::INT8, Type::FLT8
+      when Type::INT1, Type::INT2, Type::INT4, Type::INT8, Type::FLT8, Type::DATETIME, Type::DATETIME4, Type::DATETIMN
       when Type::XNVARCHAR, Type::XNCHAR
         skip_char_info(io)
       else
@@ -179,31 +186,76 @@ module TDS::Token
       end
       len = UInt8.from_io(io, ENCODING)
       name = UTF16_IO.read(io, UInt16.new(len), ENCODING)
+      trace_pop()
       ColumnMetaData.new(user_type, flags, type, name)
     end
 
-    def read(io) : Value
-      case @type
-      when Type::INT1
-        Int8.from_io(io, ENCODING)
-      when Type::INT2
-        Int16.from_io(io, ENCODING)
-      when Type::INT4
-        Int32.from_io(io, ENCODING)
-      when Type::INT8
-        Int64.from_io(io, ENCODING)
-      when Type::FLT8
-        Float64.from_io(io, ENCODING)
-      when Type::XNCHAR, Type::XNVARCHAR
-        len = UInt16.from_io(io, ENCODING)
-        UTF16_IO.read(io, len >> 1, ENCODING)
+    def self.read_datetime_8(io)
+      days = Int32.from_io(io, ENCODING) - 25567
+      seconds = Int32.from_io(io, ENCODING)//300
+      Time.unix(days*24*60*60 + seconds)
+    end
+
+    def self.read_datetime_4(io)
+      days = UInt16.from_io(io, ENCODING) - 25567_i32
+      seconds = UInt16.from_io(io, ENCODING) * 60_i32
+      Time.unix(days*24*60*60 + seconds)
+    end
+
+    def self.read_datetime_n(io)
+      len = UInt8.from_io(io, ENCODING)
+      case len
+      when 0
+        nil
+      when 4
+        read_datetime_4(io)
+      when 8
+        read_datetime_8(io)
       else
-        raise ::Exception.new("Invalid database type #{@type} at position #{"0x%04x" % io.pos}")
+        raise "Invalid datetime length"
       end
+    end
+
+    def read(io) : Value
+      trace(@type)
+      trace_push()
+      result =
+        case @type
+        when Type::INT1
+          Int8.from_io(io, ENCODING)
+        when Type::INT2
+          Int16.from_io(io, ENCODING)
+        when Type::INT4
+          Int32.from_io(io, ENCODING)
+        when Type::INT8
+          Int64.from_io(io, ENCODING)
+        when Type::FLT8
+          Float64.from_io(io, ENCODING)
+        when Type::DATETIME
+          ColumnMetaData.read_datetime_8(io)
+        when Type::DATETIME4
+          ColumnMetaData.read_datetime_4(io)
+        when Type::DATETIMN
+          ColumnMetaData.read_datetime_n(io)
+        when Type::XNCHAR, Type::XNVARCHAR
+          len = UInt16.from_io(io, ENCODING)
+          trace(len)
+          if len == 0xFFFF_u16
+            nil
+          else
+            UTF16_IO.read(io, len >> 1, ENCODING)
+          end
+        else
+          raise ::Exception.new("Invalid database type #{@type} at position #{"0x%04x" % io.pos}")
+        end
+      trace(result)
+      trace_pop()
+      result
     end
   end
 
   struct ColumnsMetaData
+    include Trace
     getter columns
 
     def initialize(@columns = [] of ColumnMetaData)
@@ -211,6 +263,7 @@ module TDS::Token
 
     def self.from_io(io : IO)
       len = UInt16.from_io(io, ENCODING)
+      trace(len)
       columns = Array(ColumnMetaData).new(len)
       len.times do |i|
         columns << ColumnMetaData.from_io(io)
@@ -220,6 +273,7 @@ module TDS::Token
   end
 
   struct Row
+    include Trace
     getter columns
     getter metadata
 
@@ -238,6 +292,7 @@ module TDS::Token
   alias Token = InfoOrError | ColumnsMetaData | LogInAck | Row | Done | EnvChange
 
   private class Iterator
+    include Trace
     include ::Iterator(Token)
 
     @metadata = ColumnsMetaData.new
@@ -247,34 +302,38 @@ module TDS::Token
 
     def next : Token | ::Iterator::Stop
       type = Type.new(Int32.new(UInt8.from_io(@io, ENCODING)))
-      p type
-      case type
-      when Type::DONE, Type::DONEINPROC, Type::DONEPROC
-        done = Done.from_io(@io)
-        stop
-      when Type::ERROR
-        token = InfoOrError.from_io(@io)
-        case token.number
-        when EPERM
-          raise DB::ConnectionRefused.new(token.message)
+      trace(type)
+      trace_push()
+      result =
+        case type
+        when Type::DONE, Type::DONEINPROC, Type::DONEPROC
+          done = Done.from_io(@io)
+          stop
+        when Type::ERROR
+          token = InfoOrError.from_io(@io)
+          case token.number
+          when EPERM
+            raise DB::ConnectionRefused.new(token.message)
+          else
+            raise ::Exception.new("Error #{token.number}: #{token.message}")
+          end
+        when Type::INFO
+          InfoOrError.from_io(@io)
+        when Type::RESULT_V7
+          @metadata = ColumnsMetaData.from_io(@io)
+          @metadata
+        when Type::ENVCHANGE
+          EnvChange.from_io(@io)
+        when Type::LOGINACK
+          LogInAck.from_io(@io)
+        when Type::ROW
+          Row.from_io(@io, @metadata)
         else
-          raise ::Exception.new("Error #{token.number}: #{token.message}")
+          raise ::Exception.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
+          Done.new
         end
-      when Type::INFO
-        InfoOrError.from_io(@io)
-      when Type::RESULT_V7
-        @metadata = ColumnsMetaData.from_io(@io)
-        @metadata
-      when Type::ENVCHANGE
-        EnvChange.from_io(@io)
-      when Type::LOGINACK
-        LogInAck.from_io(@io)
-      when Type::ROW
-        Row.from_io(@io, @metadata)
-      else
-        raise ::Exception.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
-        Done.new
-      end
+      trace_pop()
+      result
     end
   end
 
