@@ -2,7 +2,7 @@ require "./spec_helper"
 
 describe TDS do
   it "connects" do
-    DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
+    DB.open "tds://sa:My-Secret-Pass@localhost:1433" do |db|
     end
   end
   it "raises DB::ConnectionRefused" do
@@ -17,17 +17,25 @@ describe TDS do
       end
     end
   end
-  it "executes query", focus: true do
-    DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
-      rows = 0
-      db.query "SELECT @@MAX_PRECISION, @@LANGUAGE, @@VERSION, @@LOCK_TIMEOUT, @@MAX_CONNECTIONS, @@NESTLEVEL, @@OPTIONS, @@REMSERVER, @@SERVERNAME, @@SERVICENAME, @@SPID, @@TEXTSIZE, @@VERSION, CURRENT_TIMESTAMP , CAST(12345.67 as DECIMAL(10,2))" do |rs|
-        rs.each do
-          rs.read(Int8).should eq 38_i8
-          rs.read(String).empty?.should be_false
-          rows += 1
-        end
-      end
-      rows.should eq 1
+  describe "decoders" do
+    it "TINYINT" do
+      DATABASE.query "SELECT @@MAX_PRECISION, @@MAX_PRECISION" { |rs| rs.each.map { |rs| rs.read(Int8); rs.read(Int8) }.first }.should eq 38
+    end
+
+    it "TINYINT" do
+      DATABASE.query "SELECT CAST(1 as TINYINT), CAST(1 as TINYINT)" { |rs| rs.each.map { |rs| rs.read(Int8) }.first }.should eq 1
+    end
+
+    it "SMALLINT" do
+      DATABASE.query "SELECT CAST(1 as SMALLINT)" { |rs| rs.each.map { |rs| rs.read(Int16) }.first }.should eq 1
+    end
+
+    it "INT" do
+      DATABASE.query "SELECT CAST(1 as INT)" { |rs| rs.each.map { |rs| rs.read(Int32) }.first }.should eq 1
+    end
+
+    it "BIGINT" do
+      DATABASE.query "SELECT CAST(1 as BIGINT)" { |rs| rs.each.map { |rs| rs.read(Int64) }.first }.should eq 1
     end
   end
 end

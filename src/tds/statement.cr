@@ -21,6 +21,13 @@ class TDS::Statement < DB::Statement
   protected def perform_exec(args : Enumerable) : DB::ExecResult
     rows_affected : Int64 = 0
     last_id : Int64 = 0
+    connection.send(PacketIO::Type::QUERY) do |io|
+      UTF16_IO.write(io, command, ENCODING)
+    end
+    result = nil
+    connection.recv(PacketIO::Type::REPLY) do |io|
+      Token.each(io) { |t| }
+    end
     DB::ExecResult.new rows_affected, last_id
   end
 

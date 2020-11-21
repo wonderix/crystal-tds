@@ -104,7 +104,7 @@ module TDS::Token
     end
   end
 
-  alias Value = Int8 | Int16 | Int32 | Int64 | Float64 | String | Time | BigDecimal | Nil
+  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | String | Time | BigDecimal | Nil
 
   struct ColumnMetaData
     include Trace
@@ -195,6 +195,44 @@ module TDS::Token
           Proc(IO, Value).new { |io| Int32.from_io(io, ENCODING) }
         when Type::INT8
           Proc(IO, Value).new { |io| Int64.from_io(io, ENCODING) }
+        when Type::INTN
+          len = UInt8.from_io(io, ENCODING)
+          trace(len)
+          case len
+          when 1
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int8.from_io(io, ENCODING) }
+          when 2
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int16.from_io(io, ENCODING) }
+          when 4
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int32.from_io(io, ENCODING) }
+          when 8
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int64.from_io(io, ENCODING) }
+          else
+            raise "Invalid int type"
+          end
+        when Type::SINT1
+          Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING) }
+        when Type::UINT2
+          Proc(IO, Value).new { |io| UInt16.from_io(io, ENCODING) }
+        when Type::UINT4
+          Proc(IO, Value).new { |io| UInt32.from_io(io, ENCODING) }
+        when Type::UINT8
+          Proc(IO, Value).new { |io| UInt64.from_io(io, ENCODING) }
+        when Type::UINTN
+          len = UInt8.from_io(io, ENCODING)
+          trace(len)
+          case len
+          when 1
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt8.from_io(io, ENCODING) }
+          when 2
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt16.from_io(io, ENCODING) }
+          when 4
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt32.from_io(io, ENCODING) }
+          when 8
+            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt64.from_io(io, ENCODING) }
+          else
+            raise "Invalid int type"
+          end
         when Type::FLT8
           Proc(IO, Value).new { |io| Float64.from_io(io, ENCODING) }
         when Type::DATETIME
@@ -222,19 +260,19 @@ module TDS::Token
       ColumnMetaData.new(user_type, flags, decoder, name)
     end
 
-    def self.read_datetime_8(io : IO)
+    def self.read_datetime_8(io : IO) : Value
       days = Int32.from_io(io, ENCODING) - 25567
       seconds = Int32.from_io(io, ENCODING)//300
       Time.unix(days*24*60*60 + seconds)
     end
 
-    def self.read_datetime_4(io : IO)
+    def self.read_datetime_4(io : IO) : Value
       days = UInt16.from_io(io, ENCODING) - 25567_i32
       seconds = UInt16.from_io(io, ENCODING) * 60_i32
       Time.unix(days*24*60*60 + seconds)
     end
 
-    def self.read_string(io : IO)
+    def self.read_string(io : IO) : Value
       len = UInt16.from_io(io, ENCODING)
       trace(len)
       if len == 0xFFFF_u16
@@ -244,7 +282,7 @@ module TDS::Token
       end
     end
 
-    def self.read_datetime_n(io : IO)
+    def self.read_datetime_n(io : IO) : Value
       len = UInt8.from_io(io, ENCODING)
       case len
       when 0
@@ -258,7 +296,7 @@ module TDS::Token
       end
     end
 
-    def self.read_decimal(precision : UInt8, scale : UInt8, io : IO) : BigDecimal
+    def self.read_decimal(precision : UInt8, scale : UInt8, io : IO) : Value
       len = UInt8.from_io(io, ENCODING) - 1
       sign = UInt8.from_io(io, ENCODING)
       trace(len)
