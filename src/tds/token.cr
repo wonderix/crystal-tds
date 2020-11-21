@@ -1,6 +1,7 @@
 require "./utf16_io.cr"
 require "./errno.cr"
 require "./trace.cr"
+require "big"
 
 module TDS::Token
   include Trace
@@ -103,7 +104,7 @@ module TDS::Token
     end
   end
 
-  alias Value = Int8 | Int16 | Int32 | Int64 | Float64 | String | Time | Nil
+  alias Value = Int8 | Int16 | Int32 | Int64 | Float64 | String | Time | BigDecimal | Nil
 
   struct ColumnMetaData
     include Trace
@@ -157,12 +158,19 @@ module TDS::Token
       SINT8      = 0xBF
     end
 
-    getter type, name
+    getter name
 
-    def initialize(@user_type : UInt16, @flags : UInt16, @type : Type, @name : String)
+    def initialize(@user_type : UInt16, @flags : UInt16, @decoder : IO -> Value, @name : String)
     end
 
     def self.skip_char_info(io : IO)
+      large_type_size = Int16.from_io(io, ENCODING)
+      codepage = Int16.from_io(io, ENCODING)
+      flags = Int16.from_io(io, ENCODING)
+      charset = Int8.from_io(io, ENCODING)
+    end
+
+    def self.skip_numeric_info(io : IO)
       large_type_size = Int16.from_io(io, ENCODING)
       codepage = Int16.from_io(io, ENCODING)
       flags = Int16.from_io(io, ENCODING)
@@ -177,32 +185,66 @@ module TDS::Token
       trace_push()
       trace(flags)
       trace(user_type)
-      case type
-      when Type::INT1, Type::INT2, Type::INT4, Type::INT8, Type::FLT8, Type::DATETIME, Type::DATETIME4, Type::DATETIMN
-      when Type::XNVARCHAR, Type::XNCHAR
-        skip_char_info(io)
-      else
-        raise "Unsupported column type #{type} at position #{"0x%04x" % io.pos}"
-      end
+      decoder =
+        case type
+        when Type::INT1
+          Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING) }
+        when Type::INT2
+          Proc(IO, Value).new { |io| Int16.from_io(io, ENCODING) }
+        when Type::INT4
+          Proc(IO, Value).new { |io| Int32.from_io(io, ENCODING) }
+        when Type::INT8
+          Proc(IO, Value).new { |io| Int64.from_io(io, ENCODING) }
+        when Type::FLT8
+          Proc(IO, Value).new { |io| Float64.from_io(io, ENCODING) }
+        when Type::DATETIME
+          Proc(IO, Value).new { |io| ColumnMetaData.read_datetime_8(io) }
+        when Type::DATETIME4
+          Proc(IO, Value).new { |io| ColumnMetaData.read_datetime_4(io) }
+        when Type::DATETIMN
+          Proc(IO, Value).new { |io| ColumnMetaData.read_datetime_n(io) }
+        when Type::NUMERIC, Type::DECIMAL
+          type_size = UInt8.from_io(io, ENCODING)
+          precision = UInt8.from_io(io, ENCODING)
+          trace(precision)
+          scale = UInt8.from_io(io, ENCODING)
+          trace(scale)
+          Proc(IO, Value).new { |io| ColumnMetaData.read_decimal(precision, scale, io) }
+        when Type::XNVARCHAR, Type::XNCHAR
+          skip_char_info(io)
+          Proc(IO, Value).new { |io| ColumnMetaData.read_string(io) }
+        else
+          raise "Unsupported column type #{type} at position #{"0x%04x" % io.pos}"
+        end
       len = UInt8.from_io(io, ENCODING)
       name = UTF16_IO.read(io, UInt16.new(len), ENCODING)
       trace_pop()
-      ColumnMetaData.new(user_type, flags, type, name)
+      ColumnMetaData.new(user_type, flags, decoder, name)
     end
 
-    def self.read_datetime_8(io)
+    def self.read_datetime_8(io : IO)
       days = Int32.from_io(io, ENCODING) - 25567
       seconds = Int32.from_io(io, ENCODING)//300
       Time.unix(days*24*60*60 + seconds)
     end
 
-    def self.read_datetime_4(io)
+    def self.read_datetime_4(io : IO)
       days = UInt16.from_io(io, ENCODING) - 25567_i32
       seconds = UInt16.from_io(io, ENCODING) * 60_i32
       Time.unix(days*24*60*60 + seconds)
     end
 
-    def self.read_datetime_n(io)
+    def self.read_string(io : IO)
+      len = UInt16.from_io(io, ENCODING)
+      trace(len)
+      if len == 0xFFFF_u16
+        nil
+      else
+        UTF16_IO.read(io, len >> 1, ENCODING)
+      end
+    end
+
+    def self.read_datetime_n(io : IO)
       len = UInt8.from_io(io, ENCODING)
       case len
       when 0
@@ -216,38 +258,30 @@ module TDS::Token
       end
     end
 
+    def self.read_decimal(precision : UInt8, scale : UInt8, io : IO) : BigDecimal
+      len = UInt8.from_io(io, ENCODING) - 1
+      sign = UInt8.from_io(io, ENCODING)
+      trace(len)
+      trace(sign)
+      x = BigInt.new(0)
+      y = BigInt.new(1)
+      len.times do
+        f = UInt8.from_io(io, ENCODING)
+        trace(f)
+        x += f * y
+        y = y << 8
+      end
+      if sign == 1_u8
+        BigDecimal.new(x, UInt64.new(scale))
+      else
+        BigDecimal.new(-x, UInt64.new(scale))
+      end
+    end
+
     def read(io) : Value
-      trace(@type)
+      trace(@name)
       trace_push()
-      result =
-        case @type
-        when Type::INT1
-          Int8.from_io(io, ENCODING)
-        when Type::INT2
-          Int16.from_io(io, ENCODING)
-        when Type::INT4
-          Int32.from_io(io, ENCODING)
-        when Type::INT8
-          Int64.from_io(io, ENCODING)
-        when Type::FLT8
-          Float64.from_io(io, ENCODING)
-        when Type::DATETIME
-          ColumnMetaData.read_datetime_8(io)
-        when Type::DATETIME4
-          ColumnMetaData.read_datetime_4(io)
-        when Type::DATETIMN
-          ColumnMetaData.read_datetime_n(io)
-        when Type::XNCHAR, Type::XNVARCHAR
-          len = UInt16.from_io(io, ENCODING)
-          trace(len)
-          if len == 0xFFFF_u16
-            nil
-          else
-            UTF16_IO.read(io, len >> 1, ENCODING)
-          end
-        else
-          raise ::Exception.new("Invalid database type #{@type} at position #{"0x%04x" % io.pos}")
-        end
+      result = @decoder.call(io)
       trace(result)
       trace_pop()
       result
