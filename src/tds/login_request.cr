@@ -1,15 +1,10 @@
-
 require "./version"
 require "io"
 
-
-
-
 struct TDS::LoginRequest
-
   property username, password, hostname, appname, servername, extension, library_name, language, database_name, db_filename, new_password, packet_size, process_id
 
-  def initialize(@username : String, @password : String, @hostname = System.hostname , @appname = "", @servername = "", @extension = "", @library_name = "", @language = "", @database_name = "", @db_filename = "", @new_password : String? = nil, @packet_size = 0, @process_id = UInt32.new(Process.pid))
+  def initialize(@username : String, @password : String, @hostname = System.hostname, @appname = "", @servername = "", @extension = "", @library_name = "", @language = "", @database_name = "", @db_filename = "", @new_password : String? = nil, @packet_size = 0, @process_id = UInt32.new(Process.pid))
   end
 
   def write(io : IO, version = Version::V7_1)
@@ -17,9 +12,7 @@ struct TDS::LoginRequest
     info_io.write(self)
   end
 
-
   class Serializer
-
     enum Field
       HOST_NAME
       USER_NAME
@@ -35,9 +28,9 @@ struct TDS::LoginRequest
     end
 
     enum Warning
-      WARN_ON_USE = 0x20
+      WARN_ON_USE     = 0x20
       SUCCEED_INIT_DB = 0x40
-      WARN_ON_LANG = 0x80
+      WARN_ON_LANG    = 0x80
     end
 
     enum Auth
@@ -45,25 +38,24 @@ struct TDS::LoginRequest
       NTLM = 0x80
     end
 
-    ENCODING = IO::ByteFormat::LittleEndian
+    ENCODING         = IO::ByteFormat::LittleEndian
     PROGRAMM_VERSION = 7_i32
-    CONNECTION_ID = 0_i32
-    TIME_ZONE = 0_u32
-    COLLATION = 0_u32
-    SQL_TYPE = 0_u8
-    RESERVED = 0_u8
-  
-  
+    CONNECTION_ID    = 0_i32
+    TIME_ZONE        = 0_u32
+    COLLATION        = 0_u32
+    SQL_TYPE         =  0_u8
+    RESERVED         =  0_u8
+
     def initialize(@io : IO, @version = Version::V7_1)
     end
-  
-    private def write(fields : IO, buffer : IO,  data : Slice(UInt16))
+
+    private def write(fields : IO, buffer : IO, data : Slice(UInt16))
       if data.size == 0
         ENCODING.encode(0_u16, fields)
         ENCODING.encode(0_u16, fields)
       else
         pos = buffer.pos
-        data.each { | i| ENCODING.encode(i,buffer) }
+        data.each { |i| ENCODING.encode(i, buffer) }
         ENCODING.encode(UInt16.new(pos), fields)
         ENCODING.encode(UInt16.new(data.size), fields)
       end
@@ -72,18 +64,17 @@ struct TDS::LoginRequest
     private def write(fields : IO, buffer : IO, data : String)
       write(fields, buffer, data.to_utf16)
     end
-  
-  
+
     def write_password(fields : IO, buffer : IO, data : String)
-      pwd = data.to_utf16.map do | i |
+      pwd = data.to_utf16.map do |i|
         c = i ^ 0x5A5A
         (c >> 4) & 0x0F0F | (c << 4) & 0xF0F0
       end
       write(fields, buffer, pwd)
     end
-  
+
     def write(req : LoginRequest)
-      buffer = IO::Memory.new()
+      buffer = IO::Memory.new
       buffer.seek(4, IO::Seek::Current)
       ENCODING.encode(@version.as_uint32, buffer)
       ENCODING.encode(req.packet_size, buffer)
@@ -96,7 +87,7 @@ struct TDS::LoginRequest
       ENCODING.encode(RESERVED, buffer)
       ENCODING.encode(TIME_ZONE, buffer)
       ENCODING.encode(COLLATION, buffer)
-      field_bytes = Bytes.new(Field.values.size * 4+6)
+      field_bytes = Bytes.new(Field.values.size * 4 + 6)
       fields = IO::Memory.new(field_bytes)
       field_pos = buffer.pos
       buffer.write(field_bytes.to_slice)
@@ -111,7 +102,7 @@ struct TDS::LoginRequest
       write(fields, buffer, req.language)
       write(fields, buffer, req.database_name)
       write(fields, buffer, req.db_filename)
-      req.new_password.try { |s| write_password(fields, buffer, s)}
+      req.new_password.try { |s| write_password(fields, buffer, s) }
       size = buffer.pos
       buffer.seek(0, IO::Seek::Set)
       ENCODING.encode(size, buffer)

@@ -1,13 +1,11 @@
 require "./spec_helper"
 
-
 describe TDS do
-
   it "connects" do
     DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
     end
   end
-  it "raises DB::ConnectionRefused"  do
+  it "raises DB::ConnectionRefused" do
     expect_raises(DB::ConnectionRefused) do
       DB.open "tds://sa:wrong-password@localhost:1433" do |db|
       end
@@ -19,10 +17,17 @@ describe TDS do
       end
     end
   end
-  it "executes query", focus: true do 
+  it "executes query", focus: true do
     DB.open "tds://sa:asdkwnqwfjasi-asn123@localhost:1433" do |db|
-      db.query "SELECT @@MAX_PRECISION\r\nSET TRANSACTION ISOLATION LEVEL READ COMMITTED\r\nSET IMPLICIT_TRANSACTIONS OFF\r\nSET QUOTED_IDENTIFIER ON\r\nSET TEXTSIZE 2147483647" do |rs|
+      rows = 0
+      db.query "SELECT @@MAX_PRECISION, @@LANGUAGE, @@VERSION, @@LOCK_TIMEOUT, @@MAX_CONNECTIONS, @@NESTLEVEL, @@OPTIONS, @@REMSERVER, @@SERVERNAME, @@SERVICENAME, @@SPID, @@TEXTSIZE, @@VERSION " do |rs|
+        rs.each do
+          rs.read(Int8).should eq 38_i8
+          rs.read(String).empty?.should be_false
+          rows += 1
+        end
       end
+      rows.should eq 1
     end
   end
 end

@@ -1,12 +1,11 @@
-
 require "./version"
 
 class TDS::PreLoginSerializer
-  ENCODING = IO::ByteFormat::BigEndian
+  ENCODING = IO::ByteFormat::NetworkEndian
 
-  NETLIB9 = Bytes[9, 0, 0, 0, 0, 0 ]
-  @buffer = IO::Memory.new()
-  @sizes = Array(UInt16).new()
+  NETLIB9 = Bytes[9, 0, 0, 0, 0, 0]
+  @buffer = IO::Memory.new
+  @sizes = Array(UInt16).new
 
   def initialize(@io : IO)
   end
@@ -32,11 +31,11 @@ class TDS::PreLoginSerializer
     ENCODING.encode(data, @buffer)
   end
 
-  def flush()
+  def flush
     header = IO::Memory.new(@sizes.size * 5 + 1)
     offset = UInt16.new(@sizes.size * 5 + 1)
     index = 0_u8
-    @sizes.each do | size |
+    @sizes.each do |size|
       ENCODING.encode(index, header)
       ENCODING.encode(offset, header)
       ENCODING.encode(size, header)
@@ -50,44 +49,43 @@ class TDS::PreLoginSerializer
 
   def read(type : String.class) : String
     read_sizes()
-    size = @sizes.shift()
+    size = @sizes.shift
     buffer = Bytes.new(size)
     @io.read(buffer)
-    String.new(buffer[0,size-1])
+    String.new(buffer[0, size - 1])
   end
 
-  def read(type : Bool.class) 
+  def read(type : Bool.class)
     read_sizes()
-    size = @sizes.shift()
+    size = @sizes.shift
     UInt8.from_io(@io, ENCODING) != 0
   end
 
-  def read(data : Bytes) 
+  def read(data : Bytes)
     read_sizes()
-    size = @sizes.shift()
-    @io.read(data[0,size])
+    size = @sizes.shift
+    @io.read(data[0, size])
   end
 
-  private def read_sizes()
+  private def read_sizes
     return if @sizes.size != 0
     while true
-      index = UInt8.from_io(@io,ENCODING)
+      index = UInt8.from_io(@io, ENCODING)
       break if index == 0xff
-      offset = UInt16.from_io(@io,ENCODING)
-      size = UInt16.from_io(@io,ENCODING)
+      offset = UInt16.from_io(@io, ENCODING)
+      size = UInt16.from_io(@io, ENCODING)
       @sizes << size
     end
   end
-
 end
 
 class TDS::PreLoginRequest
-  NETLIB9 = Bytes[9, 0, 0, 0, 0, 0 ]
+  NETLIB9 = Bytes[9, 0, 0, 0, 0, 0]
 
   getter force_encryption
   getter instance
 
-  def initialize(@instance = "MSSQLServer", @force_encryption = false , @process_id = 0_u32 , @netlib : Bytes = NETLIB9, @mars_enabled = false)
+  def initialize(@instance = "MSSQLServer", @force_encryption = false, @process_id = 0_u32, @netlib : Bytes = NETLIB9, @mars_enabled = false)
   end
 
   def write(io : IO)
@@ -97,7 +95,7 @@ class TDS::PreLoginRequest
     info_io.write(@instance)
     info_io.write(@process_id)
     info_io.write(@mars_enabled)
-    info_io.flush()
+    info_io.flush
   end
 
   def self.from_io(io : IO)
@@ -106,7 +104,6 @@ class TDS::PreLoginRequest
     info_io.read(netlib)
     force_encryption = info_io.read(Bool)
     instance = info_io.read(String)
-    return PreLoginRequest.new(instance: instance ,force_encryption: force_encryption ,netlib: netlib)
+    return PreLoginRequest.new(instance: instance, force_encryption: force_encryption, netlib: netlib)
   end
-
 end

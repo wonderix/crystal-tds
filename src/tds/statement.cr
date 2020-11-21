@@ -8,13 +8,14 @@ class TDS::Statement < DB::Statement
   end
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
-    PacketIO.send(connection.socket,PacketType::QUERY) do | io |
-      UTF16_IO.write(io,command,ENCODING)
+    connection.send(PacketIO::Type::QUERY) do |io|
+      UTF16_IO.write(io, command, ENCODING)
     end
-    PacketIO.recv(connection.socket) do | io |
-      Token.each_from_io(io) { |i| p i }
+    result = nil
+    connection.recv(PacketIO::Type::REPLY) do |io|
+      result = ResultSet.new(self, Token.each(io))
     end
-    return ResultSet.new(self)
+    result.not_nil!
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
@@ -62,4 +63,3 @@ class TDS::Statement < DB::Statement
     @stmt
   end
 end
-

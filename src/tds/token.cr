@@ -2,7 +2,6 @@ require "./utf16_io.cr"
 require "./errno.cr"
 
 module TDS::Token
-
   ENCODING = IO::ByteFormat::LittleEndian
 
   enum Type
@@ -43,62 +42,45 @@ module TDS::Token
     DONEINPROC        = 0xFF
   end
 
-
-  def self.each_from_io(io : IO, &block)
-    metadata = ColumnsMetaData.new()
-    while true
-      type = Type.new(Int32.new(io.read_byte().not_nil!))
-      case type
-      when Type::DONE, Type::DONEINPROC, Type::DONEPROC
-        done = Done.from_io(io)
-        return
-      when Type::ERROR
-        token = InfoOrError.from_io(io)
-        case token.number
-        when EPERM
-          raise DB::ConnectionRefused.new(token.message)
-        else
-          raise ::Exception.new("Error #{token.number}: #{token.message}")
-        end
-      when Type::INFO
-        yield InfoOrError.from_io(io)
-      when Type::RESULT_V7
-        metadata = ColumnsMetaData.from_io(io)
-        yield metadata
-      when Type::ENVCHANGE
-        yield EnvChange.from_io(io)
-      when Type::LOGINACK
-        yield LogInAck.from_io(io)
-      when Type::ROW
-        yield Row.from_io(io, metadata)
-      else
-        raise ::Exception.new("Invalid token #{"0x%02x" % type}")
-      end
-    end
-  end
-
   struct EnvChange
+    getter type, old_value, new_value
+
+    def initialize(@type : UInt8, @old_value : String, @new_value : String)
+    end
+
     def self.from_io(io : IO)
-      len = UInt16.from_io(io,ENCODING)
-      io.seek(len,IO::Seek::Current)
+      len = UInt16.from_io(io, ENCODING)
+      start = io.pos
+      type = UInt8.from_io(io, ENCODING)
+      if type == 4_u8
+        old_len = UInt8.from_io(io, ENCODING)
+        old_value = UTF16_IO.read(io, UInt16.new(old_len), ENCODING)
+        new_len = UInt8.from_io(io, ENCODING)
+        new_value = UTF16_IO.read(io, UInt16.new(new_len), ENCODING)
+        EnvChange.new(type, old_value, new_value)
+      else
+        io.seek(len - (io.pos - start), IO::Seek::Current)
+        EnvChange.new(type, "", "")
+      end
     end
   end
 
   struct LogInAck
     def self.from_io(io : IO)
-      len = UInt16.from_io(io,ENCODING)
-      io.seek(len,IO::Seek::Current)
+      len = UInt16.from_io(io, ENCODING)
+      io.seek(len, IO::Seek::Current)
+      LogInAck.new
     end
   end
 
   struct Done
     def self.from_io(io : IO)
-      io.seek(7,IO::Seek::Current)
+      io.seek(7, IO::Seek::Current)
+      Done.new
     end
   end
 
   struct InfoOrError
-
     getter message
     getter number
 
@@ -106,115 +88,201 @@ module TDS::Token
     end
 
     def self.from_io(io : IO)
-      len = UInt16.from_io(io,ENCODING)
+      len = UInt16.from_io(io, ENCODING)
       start = io.pos
-      number = Int32.from_io(io,ENCODING)
-      state = UInt8.from_io(io,ENCODING)
-      severity = UInt8.from_io(io,ENCODING)
-      message_len = UInt16.from_io(io,ENCODING)
-      message = UTF16_IO.read(io,message_len,ENCODING)
-      io.seek(len - (io.pos - start),IO::Seek::Current)
-      return InfoOrError.new(message: message, number: number)
+      number = Int32.from_io(io, ENCODING)
+      state = UInt8.from_io(io, ENCODING)
+      severity = UInt8.from_io(io, ENCODING)
+      message_len = UInt16.from_io(io, ENCODING)
+      message = UTF16_IO.read(io, message_len, ENCODING)
+      io.seek(len - (io.pos - start), IO::Seek::Current)
+      InfoOrError.new(message: message, number: number)
     end
   end
 
+  alias Value = Int8 | Int16 | Int32 | Int64 | Float64 | String
+
   struct ColumnMetaData
-    enum Type 
-      CHAR                = 0x2F
-      VARCHAR             = 0x27
-      INTN                = 0x26
-      INT1                = 0x30
-      DATE                = 0x31
-      TIME                = 0x33
-      INT2                = 0x34
-      INT4                = 0x38
-      INT8                = 0x7F
-      FLT8                = 0x3E
-      DATETIME            = 0x3D
-      BIT                 = 0x32
-      TEXT                = 0x23
-      NTEXT               = 0x63
-      IMAGE               = 0x22
-      MONEY4              = 0x7A
-      MONEY               = 0x3C
-      DATETIME4           = 0x3A
-      REAL                = 0x3B
-      BINARY              = 0x2D
-      VOID                = 0x1F
-      VARBINARY           = 0x25
-      NVARCHAR            = 0x67
-      BITN                = 0x68
-      NUMERIC             = 0x6C
-      DECIMAL             = 0x6A
-      FLTN                = 0x6D
-      MONEYN              = 0x6E
-      DATETIMN            = 0x6F
-      DATEN               = 0x7B
-      TIMEN               = 0x93
-      XCHAR               = 0xAF
-      XVARCHAR            = 0xA7
-      XNVARCHAR           = 0xE7
-      XNCHAR              = 0xEF
-      XVARBINARY          = 0xA5
-      XBINARY             = 0xAD
-      UNITEXT             = 0xAE
-      LONGBINARY          = 0xE1
-      SINT1               = 0x40
-      UINT2               = 0x41
-      UINT4               = 0x42
-      UINT8               = 0x43
-      UINTN               = 0x44
-      UNIQUE              = 0x24
-      VARIANT             = 0x62
-      SINT8               = 0xBF
+    enum Type
+      CHAR       = 0x2F
+      VARCHAR    = 0x27
+      INTN       = 0x26
+      INT1       = 0x30
+      DATE       = 0x31
+      TIME       = 0x33
+      INT2       = 0x34
+      INT4       = 0x38
+      INT8       = 0x7F
+      FLT8       = 0x3E
+      DATETIME   = 0x3D
+      BIT        = 0x32
+      TEXT       = 0x23
+      NTEXT      = 0x63
+      IMAGE      = 0x22
+      MONEY4     = 0x7A
+      MONEY      = 0x3C
+      DATETIME4  = 0x3A
+      REAL       = 0x3B
+      BINARY     = 0x2D
+      VOID       = 0x1F
+      VARBINARY  = 0x25
+      NVARCHAR   = 0x67
+      BITN       = 0x68
+      NUMERIC    = 0x6C
+      DECIMAL    = 0x6A
+      FLTN       = 0x6D
+      MONEYN     = 0x6E
+      DATETIMN   = 0x6F
+      DATEN      = 0x7B
+      TIMEN      = 0x93
+      XCHAR      = 0xAF
+      XVARCHAR   = 0xA7
+      XNVARCHAR  = 0xE7
+      XNCHAR     = 0xEF
+      XVARBINARY = 0xA5
+      XBINARY    = 0xAD
+      UNITEXT    = 0xAE
+      LONGBINARY = 0xE1
+      SINT1      = 0x40
+      UINT2      = 0x41
+      UINT4      = 0x42
+      UINT8      = 0x43
+      UINTN      = 0x44
+      UNIQUE     = 0x24
+      VARIANT    = 0x62
+      SINT8      = 0xBF
     end
 
     getter type, name
-    
+
     def initialize(@user_type : UInt16, @flags : UInt16, @type : Type, @name : String)
+    end
+
+    def self.skip_char_info(io : IO)
+      large_type_size = Int16.from_io(io, ENCODING)
+      codepage = Int16.from_io(io, ENCODING)
+      flags = Int16.from_io(io, ENCODING)
+      charset = Int8.from_io(io, ENCODING)
+    end
+
+    def self.from_io(io : IO)
+      user_type = UInt16.from_io(io, ENCODING)
+      flags = UInt16.from_io(io, ENCODING)
+      type = Type.new(Int32.new(io.read_byte.not_nil!))
+      p type
+      case type
+      when Type::INT1, Type::INT2, Type::INT4, Type::INT8, Type::FLT8
+      when Type::XNVARCHAR, Type::XNCHAR
+        skip_char_info(io)
+      else
+        raise "Unsupported column type #{type} at position #{"0x%04x" % io.pos}"
+      end
+      len = UInt8.from_io(io, ENCODING)
+      name = UTF16_IO.read(io, UInt16.new(len), ENCODING)
+      ColumnMetaData.new(user_type, flags, type, name)
+    end
+
+    def read(io) : Value
+      case @type
+      when Type::INT1
+        Int8.from_io(io, ENCODING)
+      when Type::INT2
+        Int16.from_io(io, ENCODING)
+      when Type::INT4
+        Int32.from_io(io, ENCODING)
+      when Type::INT8
+        Int64.from_io(io, ENCODING)
+      when Type::FLT8
+        Float64.from_io(io, ENCODING)
+      when Type::XNCHAR, Type::XNVARCHAR
+        len = UInt16.from_io(io, ENCODING)
+        UTF16_IO.read(io, len >> 1, ENCODING)
+      else
+        raise ::Exception.new("Invalid database type #{@type} at position #{"0x%04x" % io.pos}")
+      end
     end
   end
 
   struct ColumnsMetaData
-
     getter columns
 
     def initialize(@columns = [] of ColumnMetaData)
     end
 
     def self.from_io(io : IO)
-      len = UInt16.from_io(io,ENCODING)
+      len = UInt16.from_io(io, ENCODING)
       columns = Array(ColumnMetaData).new(len)
-      len.times do | i |
-        user_type = UInt16.from_io(io,ENCODING)
-        flags = UInt16.from_io(io,ENCODING)
-        type = ColumnMetaData::Type.new(Int32.new(io.read_byte.not_nil!))
-        len = UInt16.new(io.read_byte.not_nil!)
-        name = UTF16_IO.read(io,len,ENCODING)
-        columns << ColumnMetaData.new(user_type,flags,type,name)
+      len.times do |i|
+        columns << ColumnMetaData.from_io(io)
       end
-      return ColumnsMetaData.new(columns)
+      ColumnsMetaData.new(columns)
     end
   end
 
   struct Row
-    def initialize(@metadata : ColumnsMetaData, @columns : Array(Bytes))
+    getter columns
+    getter metadata
+
+    def initialize(@metadata : ColumnsMetaData, @columns : Array(Value))
     end
+
     def self.from_io(io : IO, metadata : ColumnsMetaData)
-      columns = Array(Bytes).new(metadata.columns.size)
-      metadata.columns.each do | col |
-        case col.type
-        when ColumnMetaData::Type::INT1
-          c = Bytes.new(1)
-          io.read(c)
-          columns << c
-        else
-          raise ::Exception.new("Invalid database type #{col.type}")
-        end
+      columns = Array(Value).new(metadata.columns.size)
+      metadata.columns.each do |col|
+        columns << col.read(io)
       end
-      return Row.new(metadata, columns)
+      Row.new(metadata, columns)
     end
   end
 
+  alias Token = InfoOrError | ColumnsMetaData | LogInAck | Row | Done | EnvChange
+
+  private class Iterator
+    include ::Iterator(Token)
+
+    @metadata = ColumnsMetaData.new
+
+    def initialize(@io : IO)
+    end
+
+    def next : Token | ::Iterator::Stop
+      type = Type.new(Int32.new(UInt8.from_io(@io, ENCODING)))
+      p type
+      case type
+      when Type::DONE, Type::DONEINPROC, Type::DONEPROC
+        done = Done.from_io(@io)
+        stop
+      when Type::ERROR
+        token = InfoOrError.from_io(@io)
+        case token.number
+        when EPERM
+          raise DB::ConnectionRefused.new(token.message)
+        else
+          raise ::Exception.new("Error #{token.number}: #{token.message}")
+        end
+      when Type::INFO
+        InfoOrError.from_io(@io)
+      when Type::RESULT_V7
+        @metadata = ColumnsMetaData.from_io(@io)
+        @metadata
+      when Type::ENVCHANGE
+        EnvChange.from_io(@io)
+      when Type::LOGINACK
+        LogInAck.from_io(@io)
+      when Type::ROW
+        Row.from_io(@io, @metadata)
+      else
+        raise ::Exception.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
+        Done.new
+      end
+    end
+  end
+
+  def self.each(io : IO)
+    Iterator.new(io)
+  end
+
+  def self.each(io : IO, &block : Token ->)
+    Iterator.new(io).each(&block)
+  end
 end
-    
