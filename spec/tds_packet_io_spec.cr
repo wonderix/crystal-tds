@@ -20,7 +20,7 @@ describe PacketIO do
     end
   end
 
-  it "writes and reads multiple packets", focus: true do
+  it "writes and reads multiple packets" do
     io = IO::Memory.new
     PacketIO.send(io, PacketIO::Type::RPC, size: 16) do |io|
       io.puts("Hello")

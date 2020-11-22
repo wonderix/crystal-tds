@@ -1,0 +1,24 @@
+name: crystal-tds
+on: [push]
+jobs:
+  crystal-spec:
+    runs-on: ubuntu-latest
+    container: 
+      image: crystallang/crystal:0.35.1-alpine-build
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server
+        ports: [ '1433:1433' ]
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: My-Secret-Pass
+          MSSQL_PID: Express
+    steps:
+    - uses: actions/checkout@v2
+    - name: crystal spec
+      run: |
+        sleep 60
+        shards install
+        crystal spec
+      env:
+        MSSQL_HOST: mssql

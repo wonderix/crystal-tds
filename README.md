@@ -2,6 +2,8 @@
 
 A crystal native database driver for Microsoft SQL Server. 
 
+![spec](https://github.com/wonderix/crystal-tds/workflows/crystal-tds/badge.svg)
+
 The [C implementation (freetds)](https://www.freetds.org/), the [ the Java implementation (jTDS)](https://github.com/milesibastos/jTDS) but also the Wiresharp Protocol Plugin for TDS were a real treasure trove for the realization of this project.
 
 ## Installation
