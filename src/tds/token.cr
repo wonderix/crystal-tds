@@ -2,6 +2,7 @@ require "./utf16_io.cr"
 require "./errno.cr"
 require "./trace.cr"
 require "big"
+require "./decoder"
 
 module TDS::Token
   include Trace
@@ -104,8 +105,6 @@ module TDS::Token
     end
   end
 
-  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | String | Time | BigDecimal | Nil
-
   struct ColumnMetaData
     include Trace
     enum Type
@@ -188,69 +187,47 @@ module TDS::Token
       decoder =
         case type
         when Type::INT1
-          Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING) }
+          Decoders.int1
         when Type::INT2
-          Proc(IO, Value).new { |io| Int16.from_io(io, ENCODING) }
+          Decoders.int2
         when Type::INT4
-          Proc(IO, Value).new { |io| Int32.from_io(io, ENCODING) }
+          Decoders.int4
         when Type::INT8
-          Proc(IO, Value).new { |io| Int64.from_io(io, ENCODING) }
+          Decoders.int8
         when Type::INTN
           len = UInt8.from_io(io, ENCODING)
           trace(len)
-          case len
-          when 1
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int8.from_io(io, ENCODING) }
-          when 2
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int16.from_io(io, ENCODING) }
-          when 4
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int32.from_io(io, ENCODING) }
-          when 8
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); Int64.from_io(io, ENCODING) }
-          else
-            raise "Invalid int type"
-          end
+          Decoders.intn(len)
         when Type::SINT1
-          Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING) }
+          Decoders.sint1
         when Type::UINT2
-          Proc(IO, Value).new { |io| UInt16.from_io(io, ENCODING) }
+          Decoders.uint2
         when Type::UINT4
-          Proc(IO, Value).new { |io| UInt32.from_io(io, ENCODING) }
+          Decoders.uint4
         when Type::UINT8
-          Proc(IO, Value).new { |io| UInt64.from_io(io, ENCODING) }
+          Decoders.uint8
         when Type::UINTN
           len = UInt8.from_io(io, ENCODING)
           trace(len)
-          case len
-          when 1
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt8.from_io(io, ENCODING) }
-          when 2
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt16.from_io(io, ENCODING) }
-          when 4
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt32.from_io(io, ENCODING) }
-          when 8
-            Proc(IO, Value).new { |io| Int8.from_io(io, ENCODING); UInt64.from_io(io, ENCODING) }
-          else
-            raise "Invalid int type"
-          end
+          Decoders.uintn(len)
         when Type::FLT8
-          Proc(IO, Value).new { |io| Float64.from_io(io, ENCODING) }
+          Decoders.flt8
         when Type::DATETIME
-          Proc(IO, Value).new { |io| ColumnMetaData.read_datetime_8(io) }
+          Decoders.datetime
         when Type::DATETIME4
-          Proc(IO, Value).new { |io| ColumnMetaData.read_datetime_4(io) }
+          Decoders.datetime4
         when Type::DATETIMN
-          Proc(IO, Value).new { |io| ColumnMetaData.read_datetime_n(io) }
+          Decoders.datetimn
         when Type::NUMERIC, Type::DECIMAL
           type_size = UInt8.from_io(io, ENCODING)
           precision = UInt8.from_io(io, ENCODING)
           trace(precision)
           scale = UInt8.from_io(io, ENCODING)
           trace(scale)
-          Proc(IO, Value).new { |io| ColumnMetaData.read_decimal(precision, scale, io) }
+          Decoders.decimal(precision, scale)
         when Type::XNVARCHAR, Type::XNCHAR
           skip_char_info(io)
-          Proc(IO, Value).new { |io| ColumnMetaData.read_string(io) }
+          Decoders.xnvarchar
         else
           raise "Unsupported column type #{type} at position #{"0x%04x" % io.pos}"
         end
@@ -258,62 +235,6 @@ module TDS::Token
       name = UTF16_IO.read(io, UInt16.new(len), ENCODING)
       trace_pop()
       ColumnMetaData.new(user_type, flags, decoder, name)
-    end
-
-    def self.read_datetime_8(io : IO) : Value
-      days = Int32.from_io(io, ENCODING) - 25567
-      seconds = Int32.from_io(io, ENCODING)//300
-      Time.unix(days*24*60*60 + seconds)
-    end
-
-    def self.read_datetime_4(io : IO) : Value
-      days = UInt16.from_io(io, ENCODING) - 25567_i32
-      seconds = UInt16.from_io(io, ENCODING) * 60_i32
-      Time.unix(days*24*60*60 + seconds)
-    end
-
-    def self.read_string(io : IO) : Value
-      len = UInt16.from_io(io, ENCODING)
-      trace(len)
-      if len == 0xFFFF_u16
-        nil
-      else
-        UTF16_IO.read(io, len >> 1, ENCODING)
-      end
-    end
-
-    def self.read_datetime_n(io : IO) : Value
-      len = UInt8.from_io(io, ENCODING)
-      case len
-      when 0
-        nil
-      when 4
-        read_datetime_4(io)
-      when 8
-        read_datetime_8(io)
-      else
-        raise "Invalid datetime length"
-      end
-    end
-
-    def self.read_decimal(precision : UInt8, scale : UInt8, io : IO) : Value
-      len = UInt8.from_io(io, ENCODING) - 1
-      sign = UInt8.from_io(io, ENCODING)
-      trace(len)
-      trace(sign)
-      x = BigInt.new(0)
-      y = BigInt.new(1)
-      len.times do
-        f = UInt8.from_io(io, ENCODING)
-        trace(f)
-        x += f * y
-        y = y << 8
-      end
-      if sign == 1_u8
-        BigDecimal.new(x, UInt64.new(scale))
-      else
-        BigDecimal.new(-x, UInt64.new(scale))
-      end
     end
 
     def read(io) : Value
