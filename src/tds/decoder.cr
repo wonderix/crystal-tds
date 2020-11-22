@@ -1,4 +1,5 @@
-require "./trace.cr"
+require "./trace"
+require "./errno"
 
 module TDS
   alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil
@@ -8,9 +9,6 @@ end
 module TDS::Decoders
   include Trace
   ENCODING = IO::ByteFormat::LittleEndian
-
-  class ProtocolError < DB::Error
-  end
 
   def self.int1
     Decoder.new() { |io| Int8.from_io(io, ENCODING) }

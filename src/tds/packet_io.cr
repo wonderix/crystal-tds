@@ -1,5 +1,6 @@
 require "./version"
 require "./trace"
+require "./errno"
 
 class TDS::PacketIO < IO
   include Trace
@@ -28,6 +29,7 @@ class TDS::PacketIO < IO
   HDR_LEN  = 8_u16
   @write_pos = HDR_LEN
   @read_pos = HDR_LEN
+  @last = false
 
   def initialize(@io : IO, @type : Type, @mode : Mode, size : Int32)
     @buffer = Bytes.new(size)
@@ -54,29 +56,41 @@ class TDS::PacketIO < IO
     end
   end
 
-  def read(slice : Bytes)
+  private def read_packaged(slice : Bytes)
     raise "invalid mode" unless @mode == Mode::READ
 
     if @read_pos == @write_pos
-      if @write_pos > HDR_LEN && @buffer[1] == 1_u8
-        raise IO::EOFError.new
-      end
+      return 0 if @last
       @write_pos = 0
       while @write_pos < HDR_LEN
         count = @io.read(@buffer[@write_pos..HDR_LEN])
+        raise ProtocolError.new("Unexpected end of file") if count == 0
         @write_pos += count
       end
-      raise "expected different type" if Type.new(Int32.new(@buffer[0])) != @type
-      last_pos = ENCODING.decode(UInt16, @buffer[2, 2])
+      raise ProtocolError.new if Type.new(Int32.new(@buffer[0])) != @type
+      last_pos = Int32.new(ENCODING.decode(UInt16, @buffer[2, 2]))
+      @last = @buffer[1] == 1_u8
       while @write_pos < last_pos
-        count = @io.read(@buffer[@write_pos..last_pos])
+        count = @io.read(@buffer[@write_pos...last_pos])
+        break if count == 0
         @write_pos += count
       end
+      @read_pos = HDR_LEN
+      trace(@write_pos - @read_pos)
     end
     count = Math.min(slice.size, @write_pos - @read_pos)
     slice.copy_from(@buffer[@read_pos, count])
     @read_pos += count
     count
+  end
+
+  def read(slice : Bytes)
+    offset = 0
+    while (count = read_packaged(slice[offset..-1])) > 0
+      offset += count
+      break if offset == slice.size
+    end
+    offset
   end
 
   def write(slice : Bytes) : Nil
@@ -100,11 +114,12 @@ class TDS::PacketIO < IO
     end
   end
 
-  def flush
+  def close
     send(true)
   end
 
   private def send(last : Bool)
+    trace(@write_pos - @read_pos)
     @buffer[0] = UInt8.new(@type.value)
     @buffer[1] = last ? 1_u8 : 0_u8
     ENCODING.encode(@write_pos, @buffer[2, 2])
@@ -121,7 +136,7 @@ class TDS::PacketIO < IO
     trace_push()
     packet_io = PacketIO.new(io, type, Mode::WRITE, size)
     yield packet_io
-    packet_io.flush
+    packet_io.close
     trace_pop()
   end
 

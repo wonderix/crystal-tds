@@ -1,7 +1,7 @@
 require "./spec_helper"
 require "big"
 
-describe TDS do
+describe TDS::Connection do
   it "connects" do
     DB.open "tds://sa:My-Secret-Pass@localhost:1433" do |db|
     end

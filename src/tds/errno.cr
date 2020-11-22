@@ -8,4 +8,7 @@ module TDS
   EVERDOWN =    100 # indicating the connection can only be v7.1
   ECONN    =  20009 # Unable to connect socket -- SQL Server is unavailable or does not exist.
   EPERM    = 0x4818
+
+  class ProtocolError < DB::Error
+  end
 end

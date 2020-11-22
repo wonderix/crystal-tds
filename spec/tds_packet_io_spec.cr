@@ -19,4 +19,16 @@ describe PacketIO do
       io.gets.should eq "Hello"
     end
   end
+
+  it "writes and reads multiple packets", focus: true do
+    io = IO::Memory.new
+    PacketIO.send(io, PacketIO::Type::RPC, size: 16) do |io|
+      io.puts("Hello")
+      io.puts("World")
+    end
+    io.rewind
+    PacketIO.recv(io, PacketIO::Type::RPC, size: 16) do |io|
+      io.gets_to_end.should eq "Hello\nWorld\n"
+    end
+  end
 end

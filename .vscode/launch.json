@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "lldb-mi",
+            "request": "launch",
+            "target": "./tds_packet_io_spec",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "Compile"
+        }
+    ]
+}
