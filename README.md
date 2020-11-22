@@ -1,6 +1,8 @@
 # crystal-tds
 
-A crystal native database driver for Microsoft SQL Server
+A crystal native database driver for Microsoft SQL Server. 
+
+The [C implementation (freetds)](https://www.freetds.org/), the [ the Java implementation (jTDS)](https://github.com/milesibastos/jTDS) but also the Wiresharp Protocol Plugin for TDS were a real treasure trove for the realization of this project.
 
 ## Installation
 
@@ -22,14 +24,6 @@ querying, etc, can be found at:
 
 * https://crystal-lang.org/docs/database/
 * https://crystal-lang.org/docs/database/connection_pool.html
-
-
-```crystal
-require "crystal-tds"
-```
-
-`crystal-db` driver for Microsoft SQL Server based on the work of [FreeTDS](https://www.freetds.org/) and [jTDS](https://github.com/milesibastos/jTDS)
-
 
 ## Supported data types
 
