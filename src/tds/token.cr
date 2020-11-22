@@ -3,6 +3,8 @@ require "./errno.cr"
 require "./trace.cr"
 require "big"
 require "./decoder"
+require "./charset.cr"
+require "./version.cr"
 
 module TDS::Token
   include Trace
@@ -162,11 +164,11 @@ module TDS::Token
     def initialize(@user_type : UInt16, @flags : UInt16, @decoder : IO -> Value, @name : String)
     end
 
-    def self.skip_char_info(io : IO)
-      large_type_size = Int16.from_io(io, ENCODING)
-      codepage = Int16.from_io(io, ENCODING)
-      flags = Int16.from_io(io, ENCODING)
-      charset = Int8.from_io(io, ENCODING)
+    def self.read_encoding(io : IO)
+      lcid = UInt16.from_io(io, ENCODING)
+      flags = UInt16.from_io(io, ENCODING)
+      charset_id = UInt8.from_io(io, ENCODING)
+      Charset.encoding(lcid, flags, charset_id, Version::V7_1)
     end
 
     def self.skip_numeric_info(io : IO)
@@ -212,12 +214,18 @@ module TDS::Token
           Decoders.uintn(len)
         when Type::FLT8
           Decoders.flt8
+        when Type::FLTN
+          len = UInt8.from_io(io, ENCODING)
+          trace(len)
+          Decoders.fltn(len)
         when Type::DATETIME
           Decoders.datetime
         when Type::DATETIME4
           Decoders.datetime4
         when Type::DATETIMN
-          Decoders.datetimn
+          len = UInt8.from_io(io, ENCODING)
+          trace(len)
+          Decoders.datetimn(len)
         when Type::NUMERIC, Type::DECIMAL
           type_size = UInt8.from_io(io, ENCODING)
           precision = UInt8.from_io(io, ENCODING)
@@ -226,8 +234,32 @@ module TDS::Token
           trace(scale)
           Decoders.decimal(precision, scale)
         when Type::XNVARCHAR, Type::XNCHAR
-          skip_char_info(io)
+          large_type_size = Int16.from_io(io, ENCODING)
+          read_encoding(io)
           Decoders.xnvarchar
+        when Type::XVARCHAR, Type::XCHAR
+          large_type_size = Int16.from_io(io, ENCODING)
+          Decoders.xvarchar(read_encoding(io))
+        when Type::TEXT
+          large_type_size = UInt32.from_io(io, ENCODING)
+          trace(large_type_size)
+          encoding = read_encoding(io)
+          trace(encoding)
+          table_len = UInt16.from_io(io, ENCODING)
+          trace(table_len)
+          table_name = UTF16_IO.read(io, UInt16.new(table_len), ENCODING)
+          trace(table_name)
+          Decoders.text(encoding)
+        when Type::NTEXT
+          large_type_size = UInt32.from_io(io, ENCODING)
+          trace(large_type_size)
+          encoding = read_encoding(io)
+          trace(encoding)
+          table_len = UInt16.from_io(io, ENCODING)
+          trace(table_len)
+          table_name = UTF16_IO.read(io, UInt16.new(table_len), ENCODING)
+          trace(table_name)
+          Decoders.ntext
         else
           raise "Unsupported column type #{type} at position #{"0x%04x" % io.pos}"
         end

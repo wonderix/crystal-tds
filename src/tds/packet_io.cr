@@ -58,6 +58,9 @@ class TDS::PacketIO < IO
     raise "invalid mode" unless @mode == Mode::READ
 
     if @read_pos == @write_pos
+      if @write_pos > HDR_LEN && @buffer[1] == 1_u8
+        raise IO::EOFError.new
+      end
       @write_pos = 0
       while @write_pos < HDR_LEN
         count = @io.read(@buffer[@write_pos..HDR_LEN])

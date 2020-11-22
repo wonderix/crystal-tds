@@ -9,7 +9,6 @@ module TDS::Trace
   macro trace(value)
     {% if flag?(:trace) %}
     puts " #{ " " * TDS::Trace::INDENT.get}{{value}} = #{ {{value}}.inspect }"
-    {{ value }}
     {% end %}
   end
 
