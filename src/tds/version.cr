@@ -1,3 +1,5 @@
+require "./errno"
+
 enum TDS::Version
   V4_2 = 1
   V5_0 = 2
@@ -13,7 +15,7 @@ enum TDS::Version
     when V7_1
       return 0x71000001_u32
     else
-      raise "Unsupported version"
+      raise NotImplemented.new("Unsupported version")
     end
   end
 end

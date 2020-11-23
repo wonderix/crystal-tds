@@ -174,11 +174,10 @@ module TDS::Decoders
     Decoder.new do |io|
       textptr_len = UInt8.from_io(io, ENCODING)
       trace(textptr_len)
-      io.seek(textptr_len + 8, IO::Seek::Current)
       if textptr_len == 0
-        io.seek(1, IO::Seek::Current)
         nil
       else
+        io.seek(textptr_len + 8, IO::Seek::Current)
         len = UInt32.from_io(io, ENCODING)
         trace(len)
         buffer = Bytes.new(len)
@@ -194,11 +193,10 @@ module TDS::Decoders
     Decoder.new do |io|
       textptr_len = UInt8.from_io(io, ENCODING)
       trace(textptr_len)
-      io.seek(textptr_len + 8, IO::Seek::Current)
       if textptr_len == 0
-        io.seek(1, IO::Seek::Current)
         nil
       else
+        io.seek(textptr_len + 8, IO::Seek::Current)
         len = UInt32.from_io(io, ENCODING)
         trace(len)
         UTF16_IO.read(io, len >> 1, ENCODING)

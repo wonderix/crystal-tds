@@ -57,7 +57,7 @@ class TDS::PacketIO < IO
   end
 
   private def read_packaged(slice : Bytes)
-    raise "invalid mode" unless @mode == Mode::READ
+    raise ProtocolError.new("invalid mode") unless @mode == Mode::READ
 
     if @read_pos == @write_pos
       return 0 if @last

@@ -1,27 +1,6 @@
 require "spec"
 require "../src/tds"
 
-class DB::ResultSet
-  class Iterator
-    include ::Iterator(DB::ResultSet)
-
-    def initialize(@rs : DB::ResultSet)
-    end
-
-    def next
-      if @rs.move_next
-        @rs
-      else
-        stop
-      end
-    end
-  end
-
-  def each
-    Iterator.new(self)
-  end
-end
-
 def connect(hostname)
   timeout = Time::Span.new(seconds: 60)
   expiry = Time.local + timeout

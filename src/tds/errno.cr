@@ -11,4 +11,7 @@ module TDS
 
   class ProtocolError < DB::Error
   end
+
+  class NotImplemented < DB::Error
+  end
 end

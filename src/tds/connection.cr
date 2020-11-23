@@ -66,7 +66,7 @@ class TDS::Connection < DB::Connection
   end
 
   def build_unprepared_statement(query) : Statement
-    raise DB::Error.new("TDS driver does not support unprepared statements")
+    Statement.new(self, query)
   end
 
   def do_close

@@ -1,6 +1,7 @@
 class TDS::ResultSet < DB::ResultSet
   @row : Token::Row? = nil
   @column_index = 0
+  @done = false
 
   def initialize(statement, @iterator : ::Iterator(Token::Token))
     super(statement)
@@ -8,6 +9,7 @@ class TDS::ResultSet < DB::ResultSet
 
   protected def do_close
     super
+    @iterator.each { |token| } unless @done
   end
 
   def move_next : Bool
@@ -18,6 +20,7 @@ class TDS::ResultSet < DB::ResultSet
         @row = token
         return true
       when ::Iterator::Stop
+        @done = true
         return false
       else
       end

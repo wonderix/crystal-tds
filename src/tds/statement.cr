@@ -8,6 +8,7 @@ class TDS::Statement < DB::Statement
   end
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
+    raise NotImplemented.new("prepared statements are not supported yet") unless args.empty?
     connection.send(PacketIO::Type::QUERY) do |io|
       UTF16_IO.write(io, command, ENCODING)
     end
@@ -63,7 +64,7 @@ class TDS::Statement < DB::Statement
   end
 
   private def bind_arg(index, value)
-    raise "#{self.class} does not support #{value.class} params"
+    raise NotImplemented.new("#{self.class} does not support #{value.class} params")
   end
 
   def to_unsafe
