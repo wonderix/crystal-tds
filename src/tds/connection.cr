@@ -1,5 +1,6 @@
 require "./pre_login_request"
 require "socket"
+require "http"
 
 class TDS::Connection < DB::Connection
   @version = Version::V7_1
@@ -12,8 +13,14 @@ class TDS::Connection < DB::Connection
     password = database.uri.password || ""
     host = database.uri.host || "localhost"
     port = database.uri.port || 1433
+    connect_timeout = nil
+    database.uri.query.try do |query|
+      params = HTTP::Params.parse(query)
+      ct = params["connect_timeout"]?
+      connect_timeout = Time::Span.new(seconds: ct.to_i) if ct
+    end
     begin
-      socket = TCPSocket.new(host, port)
+      socket = TCPSocket.new(host, port, connect_timeout: connect_timeout)
     rescue exc : Socket::ConnectError
       raise DB::ConnectionRefused.new
     end

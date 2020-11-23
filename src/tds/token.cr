@@ -1,10 +1,10 @@
-require "./utf16_io.cr"
-require "./errno.cr"
-require "./trace.cr"
+require "./utf16_io"
+require "./errno"
+require "./trace"
 require "big"
 require "./decoder"
-require "./charset.cr"
-require "./version.cr"
+require "./charset"
+require "./version"
 
 module TDS::Token
   include Trace
@@ -261,7 +261,7 @@ module TDS::Token
           trace(table_name)
           Decoders.ntext
         else
-          raise "Unsupported column type #{type} at position #{"0x%04x" % io.pos}"
+          raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
         end
       len = UInt8.from_io(io, ENCODING)
       name = UTF16_IO.read(io, UInt16.new(len), ENCODING)
@@ -340,7 +340,7 @@ module TDS::Token
           when EPERM
             raise DB::ConnectionRefused.new(token.message)
           else
-            raise ::Exception.new("Error #{token.number}: #{token.message}")
+            raise ProtocolError.new("Error #{token.number}: #{token.message}")
           end
         when Type::INFO
           InfoOrError.from_io(@io)
@@ -354,7 +354,7 @@ module TDS::Token
         when Type::ROW
           Row.from_io(@io, @metadata)
         else
-          raise ::Exception.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
+          raise ProtocolError.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
           Done.new
         end
       trace_pop()
