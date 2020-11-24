@@ -52,12 +52,17 @@ class TDS::Statement < DB::Statement
   protected def perform_exec(args : Enumerable) : DB::ExecResult
     rows_affected : Int64 = 0
     last_id : Int64 = 0
+    statement = expanded_command(args)
     connection.send(PacketIO::Type::QUERY) do |io|
-      UTF16_IO.write(io, expanded_command(args), ENCODING)
+      UTF16_IO.write(io, statement, ENCODING)
     end
     result = nil
     connection.recv(PacketIO::Type::REPLY) do |io|
-      Token.each(io) { |t| }
+      begin
+        Token.each(io) { |t| }
+      rescue exc: ::Exception
+        raise DB::Error.new("#{exc.to_s} in \"#{statement}\"")
+      end
     end
     DB::ExecResult.new rows_affected, last_id
   end

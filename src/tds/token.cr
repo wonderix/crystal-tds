@@ -339,6 +339,8 @@ module TDS::Token
           case token.number
           when EPERM
             raise DB::ConnectionRefused.new(token.message)
+          when 102
+            raise SyntaxError.new("Syntax error: #{token.message}")
           else
             raise ProtocolError.new("Error #{token.number}: #{token.message}")
           end

@@ -1,10 +1,10 @@
 require "spec"
 require "../src/tds"
 
-def connect(hostname)
+def connect(url)
   timeout = Time::Span.new(seconds: 60)
   expiry = Time.local + timeout
-  url = "tds://sa:My-Secret-Pass@#{hostname}:1433?connect_timeout=#{(timeout/5).seconds}"
+  url = "#{url}?connect_timeout=#{(timeout/5).seconds}"
   database = nil
   while true
     begin
@@ -17,7 +17,8 @@ def connect(hostname)
 end
 
 HOSTNAME = ENV["MSSQL_HOST"]? || "localhost"
-DATABASE = connect(HOSTNAME)
+URL = "tds://sa:My-Secret-Pass@#{HOSTNAME}:1433"
+DATABASE = connect(URL)
 # DATABASE.exec("DROP TABLE IF EXISTS TEST")
 # DATABASE.exec("CREATE TABLE TEST (c1 TINYINT)")
 # DATABASE.exec("INSERT INTO TEST (c1) VALUES (1)")

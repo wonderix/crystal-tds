@@ -14,4 +14,7 @@ module TDS
 
   class NotImplemented < DB::Error
   end
+
+  class SyntaxError < DB::Error
+  end
 end

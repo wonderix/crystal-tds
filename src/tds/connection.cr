@@ -75,27 +75,27 @@ class TDS::Connection < DB::Connection
 
   # :nodoc:
   def perform_begin_transaction
-    self.prepared.exec "BEGIN"
+    self.prepared.exec "BEGIN TRANSACTION"
   end
 
   # :nodoc:
   def perform_commit_transaction
-    self.prepared.exec "COMMIT"
+    self.prepared.exec "COMMIT TRANSACTION"
   end
 
   # :nodoc:
   def perform_rollback_transaction
-    self.prepared.exec "ROLLBACK"
+    self.prepared.exec "ROLLBACK TRANSACTION "
   end
 
   # :nodoc:
   def perform_create_savepoint(name)
-    self.prepared.exec "SAVEPOINT #{name}"
+    self.prepared.exec "SAVE TRANSACTION #{name}"
   end
 
   # :nodoc:
   def perform_release_savepoint(name)
-    self.prepared.exec "RELEASE SAVEPOINT #{name}"
+    self.prepared.exec "COMMIT TRANSACTION #{name}"
   end
 
   # :nodoc:
