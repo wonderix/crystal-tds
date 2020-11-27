@@ -23,7 +23,7 @@ class TDS::PacketIO < IO
     WRITE = 1
   end
 
-  ENCODING = IO::ByteFormat::BigEndian
+  NETWORK_ENCODING = IO::ByteFormat::NetworkEndian
 
   MIN_SIZE =   512
   HDR_LEN  = 8_u16
@@ -68,7 +68,7 @@ class TDS::PacketIO < IO
         @write_pos += count
       end
       raise ProtocolError.new if Type.new(Int32.new(@buffer[0])) != @type
-      last_pos = Int32.new(ENCODING.decode(UInt16, @buffer[2, 2]))
+      last_pos = Int32.new(NETWORK_ENCODING.decode(UInt16, @buffer[2, 2]))
       @last = @buffer[1] == 1_u8
       while @write_pos < last_pos
         count = @io.read(@buffer[@write_pos...last_pos])
@@ -122,7 +122,7 @@ class TDS::PacketIO < IO
     trace(@write_pos - @read_pos)
     @buffer[0] = UInt8.new(@type.value)
     @buffer[1] = last ? 1_u8 : 0_u8
-    ENCODING.encode(@write_pos, @buffer[2, 2])
+    NETWORK_ENCODING.encode(@write_pos, @buffer[2, 2])
     @buffer[4] = 0
     @buffer[5] = 0
     @buffer[6] = 0

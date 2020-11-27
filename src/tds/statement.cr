@@ -1,27 +1,9 @@
 require "./utf16_io"
-require "./decoder"
+require "./type_info"
 
 class TDS::Statement < DB::Statement
-  ENCODING = IO::ByteFormat::LittleEndian
-
   def initialize(connection, command)
     super(connection, command)
-  end
-
-  protected def self.encode(value : Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | BigDecimal)
-    value.to_s
-  end
-
-  protected def self.encode(value : String)
-    "'#{value.gsub(/'/, "''")}'"
-  end
-
-  protected def self.encode(value : Time)
-    "'#{Time::Format::RFC_3339.format(value)}'"
-  end
-
-  protected def self.encode(value : Nil)
-    "NULL"
   end
 
   private def expanded_command(args : Enumerable)
@@ -71,38 +53,19 @@ class TDS::Statement < DB::Statement
     super
   end
 
-  private def bind_arg(index, value : Nil)
+  protected def self.encode(value : Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | BigDecimal)
+    value.to_s
   end
 
-  private def bind_arg(index, value : Bool)
+  protected def self.encode(value : String)
+    "'#{value.gsub(/'/, "''")}'"
   end
 
-  private def bind_arg(index, value : Int32)
+  protected def self.encode(value : Time)
+    "'#{Time::Format::RFC_3339.format(value)}'"
   end
 
-  private def bind_arg(index, value : Int64)
-  end
-
-  private def bind_arg(index, value : Float32)
-  end
-
-  private def bind_arg(index, value : Float64)
-  end
-
-  private def bind_arg(index, value : String)
-  end
-
-  private def bind_arg(index, value : Bytes)
-  end
-
-  private def bind_arg(index, value : Time)
-  end
-
-  private def bind_arg(index, value)
-    raise NotImplemented.new("#{self.class} does not support #{value.class} params")
-  end
-
-  def to_unsafe
-    @stmt
+  protected def self.encode(value : Nil)
+    "NULL"
   end
 end

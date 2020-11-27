@@ -1,7 +1,8 @@
 require "./version"
+require "./type_info"
 
 class TDS::PreLoginSerializer
-  ENCODING = IO::ByteFormat::NetworkEndian
+  NETWORK_ENCODING = IO::ByteFormat::NetworkEndian
 
   NETLIB9 = Bytes[9, 0, 0, 0, 0, 0]
   @buffer = IO::Memory.new
@@ -18,17 +19,17 @@ class TDS::PreLoginSerializer
   def write(data : String)
     @sizes << UInt16.new(data.size + 1)
     @buffer.write(data.to_slice)
-    ENCODING.encode(0_u8, @buffer)
+    NETWORK_ENCODING.encode(0_u8, @buffer)
   end
 
   def write(data : Bool)
     @sizes << 1_u16
-    ENCODING.encode(data ? 1_u8 : 0_u8, @buffer)
+    NETWORK_ENCODING.encode(data ? 1_u8 : 0_u8, @buffer)
   end
 
   def write(data : UInt32)
     @sizes << 4_u16
-    ENCODING.encode(data, @buffer)
+    NETWORK_ENCODING.encode(data, @buffer)
   end
 
   def flush
@@ -36,9 +37,9 @@ class TDS::PreLoginSerializer
     offset = UInt16.new(@sizes.size * 5 + 1)
     index = 0_u8
     @sizes.each do |size|
-      ENCODING.encode(index, header)
-      ENCODING.encode(offset, header)
-      ENCODING.encode(size, header)
+      NETWORK_ENCODING.encode(index, header)
+      NETWORK_ENCODING.encode(offset, header)
+      NETWORK_ENCODING.encode(size, header)
       offset += size
       index += 1_u8
     end
@@ -58,7 +59,7 @@ class TDS::PreLoginSerializer
   def read(type : Bool.class)
     read_sizes()
     size = @sizes.shift
-    UInt8.from_io(@io, ENCODING) != 0
+    UInt8.from_io(@io, NETWORK_ENCODING) != 0
   end
 
   def read(data : Bytes)
@@ -70,10 +71,10 @@ class TDS::PreLoginSerializer
   private def read_sizes
     return if @sizes.size != 0
     while true
-      index = UInt8.from_io(@io, ENCODING)
+      index = UInt8.from_io(@io, NETWORK_ENCODING)
       break if index == 0xff
-      offset = UInt16.from_io(@io, ENCODING)
-      size = UInt16.from_io(@io, ENCODING)
+      offset = UInt16.from_io(@io, NETWORK_ENCODING)
+      size = UInt16.from_io(@io, NETWORK_ENCODING)
       @sizes << size
     end
   end

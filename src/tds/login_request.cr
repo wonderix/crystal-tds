@@ -1,4 +1,5 @@
 require "./version"
+require "./type_info"
 require "io"
 
 struct TDS::LoginRequest
@@ -38,7 +39,6 @@ struct TDS::LoginRequest
       NTLM = 0x80
     end
 
-    ENCODING         = IO::ByteFormat::LittleEndian
     PROGRAMM_VERSION = 7_i32
     CONNECTION_ID    = 0_i32
     TIME_ZONE        = 0_u32

@@ -1,7 +1,7 @@
 require "./spec_helper"
 require "big"
 
-describe TDS::Decoders do
+describe TDS::NamedType do
   it "TINYINT" do
     DATABASE.query_one "SELECT @@MAX_PRECISION, @@MAX_PRECISION" { |rs| rs.read(Int8) }.should eq 38
   end
