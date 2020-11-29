@@ -1,4 +1,5 @@
 require "./pre_login_request"
+require "./rpc_request"
 require "socket"
 require "http"
 
@@ -59,6 +60,36 @@ class TDS::Connection < DB::Connection
     PacketIO.recv(@socket, type, @packet_size) do |io|
       block.call(io)
     end
+  end
+
+  def sp_prepare(params : String, statement : String, options = 0x0001_i32) : Int32
+    send(PacketIO::Type::RPC) do |io|
+      RpcRequest.new(id: 11, parameters: [
+        Parameter.new(nil, type_info: Int_n.new(4), status: Parameter::Status::BY_REFERENCE),
+        Parameter.new(params),
+        Parameter.new(statement),
+        Parameter.new(options),
+      ]).write(io)
+    end
+    result : Int32? = nil
+    begin
+      recv(PacketIO::Type::REPLY) do |io|
+        Token.each(io) do |token|
+          case token
+          when Token::MetaData
+          when Token::ReturnStatus
+          when Token::DoneInProc
+          when Token::Param
+            result = token.value.as(Int32)
+          else
+            raise ProtocolError.new("Unexpected token #{token.inspect}")
+          end
+        end
+      end
+    rescue exc : ::Exception
+      raise DB::Error.new("#{exc.to_s} while preparing \"#{statement}\"")
+    end
+    result.not_nil!
   end
 
   def build_prepared_statement(query) : Statement

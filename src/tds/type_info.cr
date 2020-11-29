@@ -11,12 +11,113 @@ module TDS
   include Trace
 
   abstract struct TypeInfo
+    enum Type
+      CHAR       = 0x2F
+      VARCHAR    = 0x27
+      INTN       = 0x26
+      INT1       = 0x30
+      DATE       = 0x31
+      TIME       = 0x33
+      INT2       = 0x34
+      INT4       = 0x38
+      INT8       = 0x7F
+      FLT8       = 0x3E
+      DATETIME   = 0x3D
+      BIT        = 0x32
+      TEXT       = 0x23
+      NTEXT      = 0x63
+      IMAGE      = 0x22
+      MONEY4     = 0x7A
+      MONEY      = 0x3C
+      DATETIME4  = 0x3A
+      REAL       = 0x3B
+      BINARY     = 0x2D
+      VOID       = 0x1F
+      VARBINARY  = 0x25
+      NVARCHAR   = 0x67
+      BITN       = 0x68
+      NUMERIC    = 0x6C
+      DECIMAL    = 0x6A
+      FLTN       = 0x6D
+      MONEYN     = 0x6E
+      DATETIMN   = 0x6F
+      DATEN      = 0x7B
+      TIMEN      = 0x93
+      XCHAR      = 0xAF
+      XVARCHAR   = 0xA7
+      XNVARCHAR  = 0xE7
+      XNCHAR     = 0xEF
+      XVARBINARY = 0xA5
+      XBINARY    = 0xAD
+      UNITEXT    = 0xAE
+      LONGBINARY = 0xE1
+      SINT1      = 0x40
+      UINT2      = 0x41
+      UINT4      = 0x42
+      UINT8      = 0x43
+      UINTN      = 0x44
+      UNIQUE     = 0x24
+      VARIANT    = 0x62
+      SINT8      = 0xBF
+    end
+
     abstract def decode(io : IO) : Value
 
     def encode(value : Value, io : IO)
+      raise NotImplemented.new
     end
 
     def write(io : IO)
+      raise NotImplemented.new
+    end
+
+    def self.from_io(io : IO) : TypeInfo
+      type = Type.new(Int32.new(io.read_byte.not_nil!))
+      trace(type)
+      case type
+      when Type::INT1
+        Int_1.from_io(io)
+      when Type::INT2
+        Int_2.from_io(io)
+      when Type::INT4
+        Int_4.from_io(io)
+      when Type::INT8
+        Int_8.from_io(io)
+      when Type::INTN
+        Int_n.from_io(io)
+      when Type::SINT1
+        SInt_1.from_io(io)
+      when Type::UINT2
+        UInt_2.from_io(io)
+      when Type::UINT4
+        UInt_4.from_io(io)
+      when Type::UINT8
+        UInt_8.from_io(io)
+      when Type::UINTN
+        UInt_n.from_io(io)
+      when Type::FLT8
+        Flt_8.from_io(io)
+      when Type::FLTN
+        Flt_n.from_io(io)
+      when Type::DATETIME
+        Datetime.from_io(io)
+      when Type::DATETIME4
+        Datetime_4.from_io(io)
+      when Type::DATETIMN
+        Datetime_n.from_io(io)
+      when Type::NUMERIC, Type::DECIMAL
+        Decimal.from_io(io)
+      when Type::XNVARCHAR, Type::XNCHAR
+        NVarchar.from_io(io)
+      when Type::XVARCHAR, Type::XCHAR
+        Varchar.from_io(io)
+      when Type::TEXT
+        Text.from_io(io)
+      when Type::NTEXT
+        NText.from_io(io)
+      else
+        raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
+      end
     end
   end
 
@@ -68,6 +169,32 @@ module TDS
       len = UInt8.from_io(io, ENCODING)
       trace(len)
       self.new(len)
+    end
+
+    def write(io : IO)
+      ENCODING.encode(UInt8.new(TypeInfo::Type::INTN.value), io)
+      ENCODING.encode(@expected_len, io)
+    end
+
+    def encode(value : Value, io : IO)
+      case value
+      when Nil
+        ENCODING.encode(0x0_u8, io)
+      when Int8
+        ENCODING.encode(0x1_u8, io)
+        ENCODING.encode(value.to_i8, io)
+      when Int16
+        ENCODING.encode(0x2_u8, io)
+        ENCODING.encode(value.to_i16, io)
+      when Int32
+        ENCODING.encode(0x4_u8, io)
+        ENCODING.encode(value.to_i32, io)
+      when Int64
+        ENCODING.encode(0x8_u8, io)
+        ENCODING.encode(value.to_i64, io)
+      else
+        raise ProtocolError.new("Unsupported value #{value}")
+      end
     end
 
     def decode(io : IO) : Value
@@ -307,7 +434,7 @@ module TDS
     end
 
     def write(io : IO)
-      ENCODING.encode(UInt8.new(Type.NVARCHAR.value), io)
+      ENCODING.encode(UInt8.new(TypeInfo::Type::XNVARCHAR.value), io)
       ENCODING.encode(8000_u16, io)
       ENCODING.encode(0x0409_u16, io)
       ENCODING.encode(0x00d0_u16, io)
@@ -319,7 +446,7 @@ module TDS
       when Nil
         ENCODING.encode(0xFFFF_u16, io)
       when String
-        ENCODING.encode(UInt16.new(value.size), io)
+        ENCODING.encode(UInt16.new(value.size * 2), io)
         UTF16_IO.write(io, value, ENCODING)
       else
         raise ProtocolError.new("Unsupported value #{value}")
@@ -433,115 +560,20 @@ module TDS
   end
 
   struct NamedType
-    enum Type
-      CHAR       = 0x2F
-      VARCHAR    = 0x27
-      INTN       = 0x26
-      INT1       = 0x30
-      DATE       = 0x31
-      TIME       = 0x33
-      INT2       = 0x34
-      INT4       = 0x38
-      INT8       = 0x7F
-      FLT8       = 0x3E
-      DATETIME   = 0x3D
-      BIT        = 0x32
-      TEXT       = 0x23
-      NTEXT      = 0x63
-      IMAGE      = 0x22
-      MONEY4     = 0x7A
-      MONEY      = 0x3C
-      DATETIME4  = 0x3A
-      REAL       = 0x3B
-      BINARY     = 0x2D
-      VOID       = 0x1F
-      VARBINARY  = 0x25
-      NVARCHAR   = 0x67
-      BITN       = 0x68
-      NUMERIC    = 0x6C
-      DECIMAL    = 0x6A
-      FLTN       = 0x6D
-      MONEYN     = 0x6E
-      DATETIMN   = 0x6F
-      DATEN      = 0x7B
-      TIMEN      = 0x93
-      XCHAR      = 0xAF
-      XVARCHAR   = 0xA7
-      XNVARCHAR  = 0xE7
-      XNCHAR     = 0xEF
-      XVARBINARY = 0xA5
-      XBINARY    = 0xAD
-      UNITEXT    = 0xAE
-      LONGBINARY = 0xE1
-      SINT1      = 0x40
-      UINT2      = 0x41
-      UINT4      = 0x42
-      UINT8      = 0x43
-      UINTN      = 0x44
-      UNIQUE     = 0x24
-      VARIANT    = 0x62
-      SINT8      = 0xBF
-    end
-
-    def initialize(@name : String, @type_info : TypeInfo, @type : Type)
+    def initialize(@name : String, @type_info : TypeInfo)
     end
 
     def self.from_io(io : IO)
       user_type = UInt16.from_io(io, ENCODING)
       flags = UInt16.from_io(io, ENCODING)
-      type = Type.new(Int32.new(io.read_byte.not_nil!))
-      trace(type)
       trace_push()
       trace(flags)
       trace(user_type)
-      type_info : TypeInfo = case type
-      when Type::INT1
-        Int_1.from_io(io)
-      when Type::INT2
-        Int_2.from_io(io)
-      when Type::INT4
-        Int_4.from_io(io)
-      when Type::INT8
-        Int_8.from_io(io)
-      when Type::INTN
-        Int_n.from_io(io)
-      when Type::SINT1
-        SInt_1.from_io(io)
-      when Type::UINT2
-        UInt_2.from_io(io)
-      when Type::UINT4
-        UInt_4.from_io(io)
-      when Type::UINT8
-        UInt_8.from_io(io)
-      when Type::UINTN
-        UInt_n.from_io(io)
-      when Type::FLT8
-        Flt_8.from_io(io)
-      when Type::FLTN
-        Flt_n.from_io(io)
-      when Type::DATETIME
-        Datetime.from_io(io)
-      when Type::DATETIME4
-        Datetime_4.from_io(io)
-      when Type::DATETIMN
-        Datetime_n.from_io(io)
-      when Type::NUMERIC, Type::DECIMAL
-        Decimal.from_io(io)
-      when Type::XNVARCHAR, Type::XNCHAR
-        NVarchar.from_io(io)
-      when Type::XVARCHAR, Type::XCHAR
-        Varchar.from_io(io)
-      when Type::TEXT
-        Text.from_io(io)
-      when Type::NTEXT
-        NText.from_io(io)
-      else
-        raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
-      end
+      type_info = TypeInfo.from_io(io)
       len = UInt8.from_io(io, ENCODING)
       name = UTF16_IO.read(io, UInt16.new(len), ENCODING)
       trace_pop()
-      NamedType.new(name, type_info, type)
+      NamedType.new(name, type_info)
     end
 
     def decode(io) : Value

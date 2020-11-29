@@ -80,8 +80,15 @@ module TDS::Token
 
   struct Done
     def self.from_io(io : IO)
-      io.seek(7, IO::Seek::Current)
-      Done.new
+      io.seek(8, IO::Seek::Current)
+      self.new
+    end
+  end
+
+  struct DoneInProc
+    def self.from_io(io : IO)
+      io.seek(8, IO::Seek::Current)
+      self.new
     end
   end
 
@@ -101,12 +108,11 @@ module TDS::Token
       message_len = UInt16.from_io(io, ENCODING)
       message = UTF16_IO.read(io, message_len, ENCODING)
       io.seek(len - (io.pos - start), IO::Seek::Current)
-      InfoOrError.new(message: message, number: number)
+      self.new(message: message, number: number)
     end
   end
 
   struct MetaData
-    include Trace
     getter columns
 
     def initialize(@columns = [] of NamedType)
@@ -119,12 +125,11 @@ module TDS::Token
       len.times do |i|
         columns << NamedType.from_io(io)
       end
-      MetaData.new(columns)
+      self.new(columns)
     end
   end
 
   struct Row
-    include Trace
     getter columns
     getter metadata
 
@@ -136,14 +141,47 @@ module TDS::Token
       metadata.columns.each do |col|
         columns << col.decode(io)
       end
-      Row.new(metadata, columns)
+      self.new(metadata, columns)
     end
   end
 
-  alias Token = InfoOrError | MetaData | LogInAck | Row | Done | EnvChange
+  struct ReturnStatus
+    getter status
+
+    def initialize(@status : UInt32)
+    end
+
+    def self.from_io(io : IO)
+      self.new(UInt32.from_io(io, ENCODING))
+    end
+  end
+
+  struct Param
+    enum ReturnType
+      NORMAL   = 1
+      FUNCTION = 2
+    end
+    getter name
+    getter return_type
+    getter value
+
+    def initialize(@name : String, @return_type : ReturnType, @value : Value)
+    end
+
+    def self.from_io(io : IO)
+      len = ENCODING.decode(UInt16, io)
+      name = UTF16_IO.read(io, ENCODING.decode(UInt8, io), ENCODING)
+      return_type = ReturnType.new(Int32.new(ENCODING.decode(UInt8, io)))
+      io.seek(4, IO::Seek::Current)
+      type_info = TypeInfo.from_io(io)
+      value = type_info.decode(io)
+      self.new(name, return_type, value)
+    end
+  end
+
+  alias Token = InfoOrError | MetaData | LogInAck | Row | Done | DoneInProc | EnvChange | ReturnStatus | Param
 
   private class Iterator
-    include Trace
     include ::Iterator(Token)
 
     @metadata = MetaData.new
@@ -157,9 +195,11 @@ module TDS::Token
       trace_push()
       result =
         case type
-        when Type::DONE, Type::DONEINPROC, Type::DONEPROC
+        when Type::DONE, Type::DONEPROC
           done = Done.from_io(@io)
           stop
+        when Type::DONEINPROC
+          DoneInProc.from_io(@io)
         when Type::ERROR
           token = InfoOrError.from_io(@io)
           case token.number
@@ -181,6 +221,10 @@ module TDS::Token
           LogInAck.from_io(@io)
         when Type::ROW
           Row.from_io(@io, @metadata)
+        when Type::RETURNSTATUS
+          ReturnStatus.from_io(@io)
+        when Type::PARAM
+          Param.from_io(@io)
         else
           raise ProtocolError.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
           Done.new
