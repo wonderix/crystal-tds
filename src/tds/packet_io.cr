@@ -47,7 +47,8 @@ class TDS::PacketIO < IO
     case whence
     when IO::Seek::Current
       if @mode == Mode::READ
-        @read_pos += offset
+        buffer = Bytes.new(offset)
+        read(buffer)
       else
         @write_pos += offset
       end

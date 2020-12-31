@@ -13,8 +13,14 @@ class TDS::ResultSet < DB::ResultSet
   end
 
   def move_next : Bool
-    while true
-      token = @iterator.next
+    @column_index = 0
+    while !@done
+      token = begin
+        @iterator.next
+      rescue exc : ::Exception
+        @done = true
+        raise DB::Error.new("#{exc.to_s} in \"#{statement.command}\"")
+      end
       case token
       when Token::Row
         @row = token
@@ -25,6 +31,7 @@ class TDS::ResultSet < DB::ResultSet
       else
       end
     end
+    return false
   end
 
   def read

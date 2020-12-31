@@ -214,7 +214,6 @@ module TDS::Token
           InfoOrError.from_io(@io)
         when Type::RESULT_V7
           @metadata = MetaData.from_io(@io)
-          @metadata
         when Type::ENVCHANGE
           EnvChange.from_io(@io)
         when Type::LOGINACK
@@ -227,7 +226,6 @@ module TDS::Token
           Param.from_io(@io)
         else
           raise ProtocolError.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
-          Done.new
         end
       Trace.trace_pop
       result

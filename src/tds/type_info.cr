@@ -1,8 +1,9 @@
+require "uuid"
 require "./trace"
 require "./errno"
 
 module TDS
-  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil
+  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil | Bytes | UUID
   alias Decoder = Proc(IO, Value)
   ENCODING = IO::ByteFormat::LittleEndian
 end
@@ -118,6 +119,10 @@ module TDS
         Text.from_io(io)
       when Type::NTEXT
         NText.from_io(io)
+      when Type::IMAGE
+        Image.from_io(io)
+      when Type::UNIQUE
+        UniqueIdentifier.from_io(io)
       else
         raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
       end
@@ -703,6 +708,69 @@ module TDS
         len = UInt32.from_io(io, ENCODING)
         trace(len)
         UTF16_IO.read(io, len >> 1, ENCODING)
+      end
+    end
+  end
+
+  struct Image < TypeInfo
+    def initialize
+    end
+
+    def self.from_io(io : IO)
+      large_type_size = UInt32.from_io(io, ENCODING)
+      trace(large_type_size)
+      table_len = UInt16.from_io(io, ENCODING)
+      trace(table_len)
+      table_name = UTF16_IO.read(io, table_len, ENCODING)
+      trace(table_name)
+      self.new
+    end
+
+    def decode(io : IO) : Value
+      textptr_len = UInt8.from_io(io, ENCODING)
+      trace(textptr_len)
+      if textptr_len == 0
+        nil
+      else
+        io.seek(textptr_len + 8, IO::Seek::Current)
+        len = UInt32.from_io(io, ENCODING)
+        trace(len)
+        buffer = Bytes.new(len)
+        io.read(buffer)
+        buffer
+      end
+    end
+  end
+
+  struct UniqueIdentifier < TypeInfo
+    def initialize
+    end
+
+    def self.from_io(io : IO)
+      type_size = UInt8.from_io(io, ENCODING)
+      trace(type_size)
+      self.new
+    end
+
+    def self.swap(buffer, index1, index2)
+      tmp = buffer[index1]
+      buffer[index1] = buffer[index2]
+      buffer[index2] = tmp
+    end
+
+    def decode(io : IO) : Value
+      len = UInt8.from_io(io, ENCODING)
+      trace(len)
+      if len == 0
+        nil
+      else
+        buffer = Bytes.new(len)
+        io.read(buffer)
+        UniqueIdentifier.swap(buffer, 3, 0)
+        UniqueIdentifier.swap(buffer, 2, 1)
+        UniqueIdentifier.swap(buffer, 4, 5)
+        UniqueIdentifier.swap(buffer, 6, 7)
+        UUID.new(slice: buffer)
       end
     end
   end

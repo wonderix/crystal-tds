@@ -16,6 +16,7 @@ class TDS::Connection < DB::Connection
     password = database.uri.password || ""
     host = database.uri.host || "localhost"
     port = database.uri.port || 1433
+    database_name = File.basename(database.uri.path || "/")
     connect_timeout = nil
     database.uri.query.try do |query|
       params = HTTP::Params.parse(query)
@@ -35,7 +36,7 @@ class TDS::Connection < DB::Connection
       end
     when Version::V7_1
       PacketIO.send(@socket, PacketIO::Type::MSLOGIN) do |io|
-        LoginRequest.new(user, password, appname: "crystal-tds").write(io, @version)
+        LoginRequest.new(user, password, appname: "crystal-tds", database_name: database_name).write(io, @version)
       end
       PacketIO.recv(@socket, PacketIO::Type::REPLY) do |io|
         Token.each(io) do |token|
