@@ -5,7 +5,7 @@
             "name": "Debug",
             "type": "lldb-mi",
             "request": "launch",
-            "target": "./tds_packet_io_spec",
+            "target": "./tds_type_info_spec",
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "Compile"
         }

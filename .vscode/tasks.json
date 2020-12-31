@@ -3,7 +3,7 @@
     "tasks": [
         {
             "label": "Compile",
-            "command": "crystal build spec/tds_packet_io_spec.cr --debug",
+            "command": "crystal build spec/tds_type_info_spec.cr -D trace --debug",
             "type": "shell"
         }
     ]

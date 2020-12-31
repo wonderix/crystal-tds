@@ -1,7 +1,7 @@
 require "./utf16_io"
 require "./type_info"
 
-class TDS::Statement < DB::Statement
+class TDS::UnpreparedStatement < DB::Statement
   def initialize(connection, command)
     super(connection, command)
   end
@@ -11,7 +11,7 @@ class TDS::Statement < DB::Statement
     cmd = command.gsub(/\?/) do |s|
       begin
         index += 1
-        Statement.encode(args[index])
+        UnpreparedStatement.encode(args[index])
       rescue ::IndexError
         raise DB::Error.new("To few arguments for statement #{command}")
       end
@@ -38,11 +38,10 @@ class TDS::Statement < DB::Statement
     connection.send(PacketIO::Type::QUERY) do |io|
       UTF16_IO.write(io, statement, ENCODING)
     end
-    result = nil
     connection.recv(PacketIO::Type::REPLY) do |io|
       begin
         Token.each(io) { |t| }
-      rescue exc: ::Exception
+      rescue exc : ::Exception
         raise DB::Error.new("#{exc.to_s} in \"#{statement}\"")
       end
     end

@@ -24,7 +24,7 @@ RPC_DATA = Bytes[
 describe RpcRequest do
   it "writes correct" do
     io = IO::Memory.new
-    RpcRequest.new(id: 11, parameters: [
+    RpcRequest.new(id: RpcRequest::Type::PREPARE, parameters: [
       Parameter.new(nil, type_info: Int_n.new(4), status: Parameter::Status::BY_REFERENCE),
       Parameter.new("@P0 int"),
       Parameter.new("SELECT c1 FROM TEST WHERE c1 =  @P0 "),

@@ -1,5 +1,7 @@
 require "./pre_login_request"
 require "./rpc_request"
+require "./prepared_statement"
+require "./unprepared_statement"
 require "socket"
 require "http"
 
@@ -64,7 +66,7 @@ class TDS::Connection < DB::Connection
 
   def sp_prepare(params : String, statement : String, options = 0x0001_i32) : Int32
     send(PacketIO::Type::RPC) do |io|
-      RpcRequest.new(id: 11, parameters: [
+      RpcRequest.new(id: RpcRequest::Type::PREPARE, parameters: [
         Parameter.new(nil, type_info: Int_n.new(4), status: Parameter::Status::BY_REFERENCE),
         Parameter.new(params),
         Parameter.new(statement),
@@ -92,12 +94,16 @@ class TDS::Connection < DB::Connection
     result.not_nil!
   end
 
-  def build_prepared_statement(query) : Statement
-    Statement.new(self, query)
+  def build_prepared_statement(query) : DB::Statement
+    if query.includes?('?')
+      PreparedStatement.new(self, query)
+    else
+      UnpreparedStatement.new(self, query)
+    end
   end
 
-  def build_unprepared_statement(query) : Statement
-    Statement.new(self, query)
+  def build_unprepared_statement(query) : DB::Statement
+    UnpreparedStatement.new(self, query)
   end
 
   def do_close

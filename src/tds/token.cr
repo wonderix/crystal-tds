@@ -1,7 +1,7 @@
+require "big"
 require "./utf16_io"
 require "./errno"
 require "./trace"
-require "big"
 require "./type_info"
 require "./charset"
 require "./version"
@@ -120,7 +120,7 @@ module TDS::Token
 
     def self.from_io(io : IO)
       len = UInt16.from_io(io, ENCODING)
-      trace(len)
+      Trace.trace(len)
       columns = Array(NamedType).new(len)
       len.times do |i|
         columns << NamedType.from_io(io)
@@ -191,8 +191,8 @@ module TDS::Token
 
     def next : Token | ::Iterator::Stop
       type = Type.new(Int32.new(UInt8.from_io(@io, ENCODING)))
-      trace(type)
-      trace_push()
+      Trace.trace(type)
+      Trace.trace_push
       result =
         case type
         when Type::DONE, Type::DONEPROC
@@ -229,7 +229,7 @@ module TDS::Token
           raise ProtocolError.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
           Done.new
         end
-      trace_pop()
+      Trace.trace_pop
       result
     end
   end

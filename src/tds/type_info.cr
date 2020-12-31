@@ -8,9 +8,8 @@ module TDS
 end
 
 module TDS
-  include Trace
-
   abstract struct TypeInfo
+    include Trace
     enum Type
       CHAR       = 0x2F
       VARCHAR    = 0x27
@@ -67,6 +66,10 @@ module TDS
       raise NotImplemented.new
     end
 
+    def type : String
+      raise NotImplemented.new
+    end
+
     def write(io : IO)
       raise NotImplemented.new
     end
@@ -117,6 +120,31 @@ module TDS
         NText.from_io(io)
       else
         raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
+      end
+    end
+
+    def self.from_value(value : Value) : TypeInfo
+      case value
+      when String
+        NVarchar.new
+      when Int8
+        Int_n.new(1)
+      when Int16
+        Int_n.new(2)
+      when Int32
+        Int_n.new(4)
+      when Int64
+        Int_n.new(8)
+      when Float32
+        Flt_n.new(4)
+      when Float64
+        Flt_n.new(8)
+      when Time
+        Datetime_n.new(8)
+      when BigDecimal
+        Decimal.new(18, UInt8.new(value.scale))
+      else
+        raise NotImplemented.new
       end
     end
   end
@@ -171,6 +199,21 @@ module TDS
       self.new(len)
     end
 
+    def type : String
+      case @expected_len
+      when 1
+        "TINYINT"
+      when 2
+        "SMALLINT"
+      when 4
+        "INT"
+      when 8
+        "BIGINT"
+      else
+        raise NotImplemented.new
+      end
+    end
+
     def write(io : IO)
       ENCODING.encode(UInt8.new(TypeInfo::Type::INTN.value), io)
       ENCODING.encode(@expected_len, io)
@@ -180,18 +223,21 @@ module TDS
       case value
       when Nil
         ENCODING.encode(0x0_u8, io)
-      when Int8
-        ENCODING.encode(0x1_u8, io)
-        ENCODING.encode(value.to_i8, io)
-      when Int16
-        ENCODING.encode(0x2_u8, io)
-        ENCODING.encode(value.to_i16, io)
-      when Int32
-        ENCODING.encode(0x4_u8, io)
-        ENCODING.encode(value.to_i32, io)
-      when Int64
-        ENCODING.encode(0x8_u8, io)
-        ENCODING.encode(value.to_i64, io)
+      when Number
+        case @expected_len
+        when 1
+          ENCODING.encode(0x1_u8, io)
+          ENCODING.encode(value.to_i8, io)
+        when 2
+          ENCODING.encode(0x2_u8, io)
+          ENCODING.encode(value.to_i16, io)
+        when 4
+          ENCODING.encode(0x4_u8, io)
+          ENCODING.encode(value.to_i32, io)
+        when 8
+          ENCODING.encode(0x8_u8, io)
+          ENCODING.encode(value.to_i64, io)
+        end
       else
         raise ProtocolError.new("Unsupported value #{value}")
       end
@@ -313,6 +359,40 @@ module TDS
       self.new(len)
     end
 
+    def type : String
+      case @expected_len
+      when 4
+        "REAL"
+      when 8
+        "FLOAT"
+      else
+        raise NotImplemented.new
+      end
+    end
+
+    def write(io : IO)
+      ENCODING.encode(UInt8.new(TypeInfo::Type::FLTN.value), io)
+      ENCODING.encode(@expected_len, io)
+    end
+
+    def encode(value : Value, io : IO)
+      case value
+      when Nil
+        ENCODING.encode(0x0_u8, io)
+      when Number
+        case @expected_len
+        when 4
+          ENCODING.encode(0x4_u8, io)
+          ENCODING.encode(value.to_f32, io)
+        when 8
+          ENCODING.encode(0x8_u8, io)
+          ENCODING.encode(value.to_f64, io)
+        end
+      else
+        raise ProtocolError.new("Unsupported value #{value}")
+      end
+    end
+
     def decode(io : IO) : Value
       len = UInt8.from_io(io, ENCODING)
       case len
@@ -374,6 +454,37 @@ module TDS
       self.new(len)
     end
 
+    def type : String
+      case @expected_len
+      when 8
+        "DATETIME"
+      else
+        raise NotImplemented.new
+      end
+    end
+
+    def write(io : IO)
+      ENCODING.encode(UInt8.new(TypeInfo::Type::DATETIMN.value), io)
+      ENCODING.encode(@expected_len, io)
+    end
+
+    def encode(value : Value, io : IO)
+      case value
+      when Nil
+        ENCODING.encode(0x0_u8, io)
+      when Time
+        raise NotImplemented.new if @expected_len != 8
+        ENCODING.encode(0x8_u8, io)
+        ms = value.to_unix_ms
+        days = UInt32.new(ms/(1000*24*60*60) + 25567)
+        fraction = UInt32.new((ms % (1000*24*60*60)) * 300//1000)
+        ENCODING.encode(days, io)
+        ENCODING.encode(fraction, io)
+      else
+        raise ProtocolError.new("Unsupported value #{value}")
+      end
+    end
+
     def decode(io : IO) : Value
       len = UInt8.from_io(io, ENCODING)
       case len
@@ -402,6 +513,39 @@ module TDS
       scale = UInt8.from_io(io, ENCODING)
       trace(scale)
       self.new(precision, scale)
+    end
+
+    def type : String
+      "DECIMAL(#{@precision},#{@scale}"
+    end
+
+    def write(io : IO)
+      ENCODING.encode(UInt8.new(TypeInfo::Type::DECIMAL.value), io)
+    end
+
+    def encode(value : Value, io : IO)
+      case value
+      when Nil
+        ENCODING.encode(0x0_u8, io)
+      when BigDecimal
+        sign = 1_u8
+        if value < 0
+          sign = 0_u8
+          value = -value
+        end
+        v = (value * (BigInt.new(10) ** @scale)).to_big_i
+        trace(v)
+        data = IO::Memory.new
+        while v != 0
+          data.write_byte(UInt8.new(v % 0x100))
+          v = v >> 8
+        end
+        ENCODING.encode(UInt8.new(data.size + 1), io)
+        ENCODING.encode(sign, io)
+        io.write(data.to_slice)
+      else
+        raise ProtocolError.new("Unsupported value #{value}")
+      end
     end
 
     def decode(io : IO) : Value
@@ -439,6 +583,10 @@ module TDS
       ENCODING.encode(0x0409_u16, io)
       ENCODING.encode(0x00d0_u16, io)
       ENCODING.encode(52_u8, io)
+    end
+
+    def type
+      "NVARCHAR(4000)"
     end
 
     def encode(value : Value, io : IO)
@@ -560,6 +708,8 @@ module TDS
   end
 
   struct NamedType
+    include Trace
+
     def initialize(@name : String, @type_info : TypeInfo)
     end
 
