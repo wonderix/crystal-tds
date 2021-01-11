@@ -3,7 +3,7 @@ require "./trace"
 require "./errno"
 
 module TDS
-  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil | Bytes | UUID
+  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil | Bytes | UUID | Bool
   alias Decoder = Proc(IO, Value)
   ENCODING = IO::ByteFormat::LittleEndian
 end
@@ -123,6 +123,8 @@ module TDS
         Image.from_io(io)
       when Type::UNIQUE
         UniqueIdentifier.from_io(io)
+      when Type::BIT
+        Bit.from_io(io)
       else
         raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
       end
@@ -341,6 +343,16 @@ module TDS
       else
         raise ProtocolError.new
       end
+    end
+  end
+
+  struct Bit < TypeInfo
+    def self.from_io(io : IO)
+      self.new
+    end
+
+    def decode(io : IO) : Value
+      UInt8.from_io(io, ENCODING)
     end
   end
 
