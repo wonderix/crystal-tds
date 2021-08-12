@@ -9,8 +9,9 @@ class TDS::PreparedStatement < DB::Statement
     super(connection, command)
   end
 
-  private def expanded_command(args : Enumerable)
+  private def expanded_command(e : Enumerable)
     index = -1
+    args = e.to_a
     cmd = command.gsub(/\?/) do |s|
       begin
         index += 1
@@ -23,9 +24,10 @@ class TDS::PreparedStatement < DB::Statement
     cmd
   end
 
-  private def ensure_prepared(args : Enumerable)
+  private def ensure_prepared(e : Enumerable)
     return unless @proc_id.nil?
     index = -1
+    args = e.to_a
     params = [] of String
     cmd = command.gsub(/\?/) do |s|
       begin
@@ -57,7 +59,18 @@ class TDS::PreparedStatement < DB::Statement
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
-    parameters = args.zip(@type_infos).map { |x| Parameter.new(x[0].as(Value), type_info: x[1].as(TypeInfo)) }
+    ensure_prepared(args)
+    begin
+      parameters = args.zip(@type_infos).map do |x|
+        begin
+          Parameter.new(x[0].as(Value), type_info: x[1].as(TypeInfo))
+        rescue exc : IndexError
+          raise "#{x} : #{exc}"
+        end
+      end
+    rescue exc : IndexError
+      raise "#{args} #{@type_infos} #{command}: #{exc}"
+    end
     connection.send(PacketIO::Type::RPC) do |io|
       RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: [@proc_id.not_nil!] + parameters).write(io)
     end

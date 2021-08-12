@@ -13,6 +13,9 @@ module TDS
   end
 
   class NotImplemented < DB::Error
+    def initialize(msg = "")
+      super(msg)
+    end
   end
 
   class SyntaxError < DB::Error

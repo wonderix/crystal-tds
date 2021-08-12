@@ -150,8 +150,10 @@ module TDS
         Datetime_n.new(8)
       when BigDecimal
         Decimal.new(18, UInt8.new(value.scale))
+      when Nil
+        NVarchar.new(1)
       else
-        raise NotImplemented.new
+        raise NotImplemented.new("Invalid type #{value.inspect}")
       end
     end
   end
@@ -588,6 +590,9 @@ module TDS
   end
 
   struct NVarchar < TypeInfo
+    def initialize(@size = 4000)
+    end
+
     def self.from_io(io : IO)
       large_type_size = Int16.from_io(io, ENCODING)
       read_encoding(io)
@@ -603,7 +608,7 @@ module TDS
     end
 
     def type
-      "NVARCHAR(4000)"
+      "NVARCHAR(#{@size})"
     end
 
     def encode(value : Value, io : IO)
@@ -787,8 +792,28 @@ module TDS
     end
   end
 
+  struct Null < TypeInfo
+    def type : String
+      "NVARCHAR(16)"
+    end
+
+    def write(io : IO)
+      ENCODING.encode(0xFFFF_u16, io)
+    end
+
+    def decode(io : IO) : Value
+      len = UInt8.from_io(io, ENCODING)
+    end
+
+    def encode(value : Value, io : IO)
+      ENCODING.encode(0_u8, io)
+    end
+  end
+
   struct NamedType
     include Trace
+
+    getter name
 
     def initialize(@name : String, @type_info : TypeInfo)
     end

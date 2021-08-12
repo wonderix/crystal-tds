@@ -6,17 +6,18 @@ class TDS::UnpreparedStatement < DB::Statement
     super(connection, command)
   end
 
-  private def expanded_command(args : Enumerable)
+  private def expanded_command(e : Enumerable)
+    args = e.to_a
     index = -1
     cmd = command.gsub(/\?/) do |s|
       begin
         index += 1
         UnpreparedStatement.encode(args[index])
       rescue ::IndexError
-        raise DB::Error.new("To few arguments for statement #{command}")
+        raise DB::Error.new("Too few arguments for statement #{command}")
       end
     end
-    raise DB::Error.new("To much arguments for statement #{command}") if index != args.size - 1
+    raise DB::Error.new("Too much arguments for statement #{command}") if index != args.size - 1
     cmd
   end
 

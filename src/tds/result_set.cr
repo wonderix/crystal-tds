@@ -1,10 +1,22 @@
 class TDS::ResultSet < DB::ResultSet
   @row : Token::Row? = nil
+  @metadata : Token::MetaData
   @column_index = 0
   @done = false
 
   def initialize(statement, @iterator : ::Iterator(Token::Token))
     super(statement)
+    metadata : Token::MetaData? = nil
+    while true
+      token = @iterator.next
+      case token
+      when Token::MetaData
+        metadata = token
+        break
+      else
+      end
+    end
+    @metadata = metadata.not_nil!
   end
 
   protected def do_close
@@ -49,10 +61,10 @@ class TDS::ResultSet < DB::ResultSet
   end
 
   def column_count : Int32
-    @row.not_nil!.columns.size
+    @metadata.columns.size
   end
 
   def column_name(index) : String
-    @row.metadata.columns[index].name
+    @metadata.columns[index].name
   end
 end
