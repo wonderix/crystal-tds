@@ -29,6 +29,7 @@ class TDS::Connection < DB::Connection
       raise DB::ConnectionRefused.new
     end
     @socket = socket
+    @socket.read_timeout = Time::Span.new(seconds: 30)
     case @version
     when Version::V9_0
       PacketIO.send(@socket, PacketIO::Type::PRE_LOGIN) do |io|
@@ -138,6 +139,6 @@ class TDS::Connection < DB::Connection
 
   # :nodoc:
   def perform_rollback_savepoint(name)
-    self.prepared.exec "ROLLBACK TO #{name}"
+    self.prepared.exec "ROLLBACK TRANSACTION #{name}"
   end
 end
