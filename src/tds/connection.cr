@@ -126,6 +126,7 @@ class TDS::Connection < DB::Connection
   end
 
   def do_close
+    @socket.close
     super
   end
 
