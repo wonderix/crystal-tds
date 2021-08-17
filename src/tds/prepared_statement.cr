@@ -65,11 +65,11 @@ class TDS::PreparedStatement < DB::Statement
         begin
           Parameter.new(x[0].as(Value), type_info: x[1].as(TypeInfo))
         rescue exc : IndexError
-          raise "#{x} : #{exc}"
+          raise DB::Error.new("#{x} : #{exc}")
         end
       end
     rescue exc : IndexError
-      raise "#{args} #{@type_infos} #{command}: #{exc}"
+      raise DB::Error.new("#{args} #{@type_infos} #{command}: #{exc}")
     end
     connection.send(PacketIO::Type::RPC) do |io|
       RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: [@proc_id.not_nil!] + parameters).write(io)

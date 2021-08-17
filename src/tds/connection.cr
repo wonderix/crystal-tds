@@ -18,10 +18,13 @@ class TDS::Connection < DB::Connection
     port = database.uri.port || 1433
     database_name = File.basename(database.uri.path || "/")
     connect_timeout = nil
+    read_timeout = Time::Span.new(seconds: 30)
     database.uri.query.try do |query|
       params = HTTP::Params.parse(query)
       ct = params["connect_timeout"]?
       connect_timeout = Time::Span.new(seconds: ct.to_i) if ct
+      rt = params["read_timeout"]?
+      read_timeout = Time::Span.new(seconds: rt.to_i) if rt
     end
     begin
       socket = TCPSocket.new(host, port, connect_timeout: connect_timeout)
@@ -29,7 +32,7 @@ class TDS::Connection < DB::Connection
       raise DB::ConnectionRefused.new
     end
     @socket = socket
-    @socket.read_timeout = Time::Span.new(seconds: 30)
+    @socket.read_timeout = read_timeout
     case @version
     when Version::V9_0
       PacketIO.send(@socket, PacketIO::Type::PRE_LOGIN) do |io|

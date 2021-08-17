@@ -33,8 +33,6 @@ class TDS::UnpreparedStatement < DB::Statement
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
-    rows_affected : Int64 = 0
-    last_id : Int64 = 0
     statement = expanded_command(args)
     connection.send(PacketIO::Type::QUERY) do |io|
       UTF16_IO.write(io, statement, ENCODING)
@@ -43,10 +41,10 @@ class TDS::UnpreparedStatement < DB::Statement
       begin
         Token.each(io) { |t| }
       rescue exc : ::Exception
-        raise DB::Error.new("#{exc.to_s} in \"#{statement}\"")
+        raise StatementError.new(exc, statement)
       end
     end
-    DB::ExecResult.new rows_affected, last_id
+    DB::ExecResult.new 0, 0
   end
 
   protected def do_close

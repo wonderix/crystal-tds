@@ -208,7 +208,7 @@ module TDS::Token
           when 102
             raise SyntaxError.new("Syntax error: #{token.message}")
           else
-            raise ProtocolError.new("Error #{token.number}: #{token.message}")
+            raise ServerError.new(token.number, token.message)
           end
         when Type::INFO
           InfoOrError.from_io(@io)

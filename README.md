@@ -4,7 +4,7 @@ A crystal native database driver for Microsoft SQL Server.
 
 ![spec](https://github.com/wonderix/crystal-tds/workflows/crystal-tds/badge.svg)
 
-The [C implementation (freetds)](https://www.freetds.org/), the [ the Java implementation (jTDS)](https://github.com/milesibastos/jTDS) but also the Wiresharp Protocol Plugin for TDS were a real treasure trove for the realization of this project.
+The [C implementation (freetds)](https://www.freetds.org/), the [ the Java implementation (jTDS)](https://github.com/milesibastos/jTDS) but also the Wireshark Protocol Plugin for TDS were a real treasure trove for the realization of this project.
 
 ## Installation
 
@@ -71,26 +71,19 @@ Have a look at the [issue tracker](https://github.com/wonderix/crystal-tds/label
 
 ## Testing
 
-```bash
-docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=My-Secret-Pass' -e 'MSSQL_PID=Express' -p 1433:1433 -d mcr.microsoft.com/mssql/server
-```
+* Run Microsoft SQL Server inside docher
+  ```bash
+  docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=My-Secret-Pass' -e 'MSSQL_PID=Express' -p 1433:1433 -d mcr.microsoft.com/mssql/server
+  ```
 
-On Mac M1 use
+* On Mac M1 use
 
-```bash
-docker run -e "ACCEPT_EULA=1" -e "MSSQL_SA_PASSWORD=My-Secret-Pass" -e "MSSQL_PID=Developer" -e "MSSQL_USER=SA" -p 1433:1433 -d --name=sql mcr.microsoft.com/azure-sql-edge
-```
+  ```bash
+  docker run -e "ACCEPT_EULA=1" -e "MSSQL_SA_PASSWORD=My-Secret-Pass" -e "MSSQL_PID=Developer" -e "MSSQL_USER=SA" -p 1433:1433 -d --name=sql mcr.microsoft.com/azure-sql-edge
+  ```
 
+* Run tests
 
-```SQL
-CREATE DATABASE Work;
-GO
-ALTER DATABASE Work SET RECOVERY SIMPLE;
-ALTER DATABASE Work SET ALLOW_SNAPSHOT_ISOLATION ON;
-GO
-```
-
-
-```bash
-crystal spec
-```
+  ```bash
+  crystal spec
+  ```
