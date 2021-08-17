@@ -73,11 +73,24 @@ Have a look at the [issue tracker](https://github.com/wonderix/crystal-tds/label
 
 ```bash
 docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=My-Secret-Pass' -e 'MSSQL_PID=Express' -p 1433:1433 -d mcr.microsoft.com/mssql/server
-crystal spec
 ```
 
 On Mac M1 use
 
 ```bash
 docker run -e "ACCEPT_EULA=1" -e "MSSQL_SA_PASSWORD=My-Secret-Pass" -e "MSSQL_PID=Developer" -e "MSSQL_USER=SA" -p 1433:1433 -d --name=sql mcr.microsoft.com/azure-sql-edge
+```
+
+
+```SQL
+CREATE DATABASE Work;
+GO
+ALTER DATABASE Work SET RECOVERY SIMPLE;
+ALTER DATABASE Work SET ALLOW_SNAPSHOT_ISOLATION ON;
+GO
+```
+
+
+```bash
+crystal spec
 ```

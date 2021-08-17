@@ -5,15 +5,31 @@ DB::DriverSpecs(DB::Any).run do
   connection_string URL
 
   before do
-    # ...
   end
 
   after do
     # ...
   end
 
-  sample_value "hello", "varchar(25)", "'hello'"
+  # Unsupported By DB::DriverSpecs::ValueDef
+  # sample_value BigDecimal.new(1,0), "DECIMAL(19,2)", "1"
+  # sample_value , "NUMERIC(10,5)", "1"
+  # sample_value 1_i8, "TINYINT", "1"
+  # sample_value 1_i16 , "SMALLINT", "1"
+
+  sample_value "hello", "VARCHAR(25)", "'hello'"
   sample_value 1_i32, "INT", "1"
+  sample_value 1_i64, "BIGINT", "1"
+  sample_value 1.0_f64, "FLOAT", "1.0"
+  sample_value 1.0_f32, "REAL", "1.0"
+  sample_value "hello", "NVARCHAR(25)", "'hello'"
+  sample_value Time.utc(2016, 2, 15, 10, 20, 30), "DATETIME", "'2016-02-15 10:20:30.000'", type_safe_value: false
+  sample_value Time.utc(2016, 2, 15, 10, 20, 30), "DATETIME2", "'2016-02-15 10:20:30.000000'", type_safe_value: false
+  sample_value Time.utc(2016, 2, 15, 10, 21, 0), "SMALLDATETIME", "'2016-02-15 10:21:00'", type_safe_value: false
+  sample_value Time.utc(2016, 2, 15) , "DATE", "'2016-02-15'", type_safe_value: false
+  sample_value "hello",  "TEXT", "'hello'"
+  sample_value "hello",  "NTEXT", "'hello'"
+
 
   binding_syntax do |index|
     "?"

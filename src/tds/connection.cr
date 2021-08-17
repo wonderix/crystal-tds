@@ -52,6 +52,7 @@ class TDS::Connection < DB::Connection
     else
       raise ::Exception.new("Unsupported version #{@version}")
     end
+    self.perform_exec "SET TRANSACTION ISOLATION LEVEL SNAPSHOT"
   end
 
   def send(type : PacketIO::Type, &block : IO ->)
@@ -96,6 +97,19 @@ class TDS::Connection < DB::Connection
     result.not_nil!
   end
 
+  protected def perform_exec(statement)
+    send(PacketIO::Type::QUERY) do |io|
+      UTF16_IO.write(io, statement, ENCODING)
+    end
+    recv(PacketIO::Type::REPLY) do |io|
+      begin
+        Token.each(io) { |t| }
+      rescue exc : ::Exception
+        raise DB::Error.new("#{exc.to_s} in \"#{statement}\"")
+      end
+    end
+  end
+
   def build_prepared_statement(query) : DB::Statement
     if query.includes?('?')
       PreparedStatement.new(self, query)
@@ -114,31 +128,30 @@ class TDS::Connection < DB::Connection
 
   # :nodoc:
   def perform_begin_transaction
-    self.prepared.exec "BEGIN TRANSACTION"
+    self.perform_exec "BEGIN TRANSACTION"
   end
 
   # :nodoc:
   def perform_commit_transaction
-    self.prepared.exec "COMMIT TRANSACTION"
+    self.perform_exec "COMMIT TRANSACTION"
   end
 
   # :nodoc:
   def perform_rollback_transaction
-    self.prepared.exec "ROLLBACK TRANSACTION "
+    self.perform_exec "ROLLBACK TRANSACTION "
   end
 
   # :nodoc:
   def perform_create_savepoint(name)
-    self.prepared.exec "SAVE TRANSACTION #{name}"
+    self.perform_exec "SAVE TRANSACTION #{name}"
   end
 
   # :nodoc:
   def perform_release_savepoint(name)
-    self.prepared.exec "COMMIT TRANSACTION #{name}"
   end
 
   # :nodoc:
   def perform_rollback_savepoint(name)
-    self.prepared.exec "ROLLBACK TRANSACTION #{name}"
+    self.perform_exec "ROLLBACK TRANSACTION #{name}"
   end
 end

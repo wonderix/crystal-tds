@@ -16,7 +16,7 @@ def connect(url)
 end
 
 HOSTNAME = ENV["MSSQL_HOST"]? || "localhost"
-URL      = "tds://sa:My-Secret-Pass@#{HOSTNAME}:1433"
+URL      = "tds://sa:My-Secret-Pass@#{HOSTNAME}:1433/Work"
 DATABASE = connect(URL)
 DATABASE.exec("DROP TABLE IF EXISTS TEST")
 DATABASE.exec("CREATE TABLE TEST (c1 TINYINT)")

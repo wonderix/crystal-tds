@@ -99,6 +99,8 @@ module TDS
         UInt_8.from_io(io)
       when Type::UINTN
         UInt_n.from_io(io)
+      when Type::REAL
+        Flt_4.from_io(io)
       when Type::FLT8
         Flt_8.from_io(io)
       when Type::FLTN
@@ -355,6 +357,16 @@ module TDS
 
     def decode(io : IO) : Value
       UInt8.from_io(io, ENCODING)
+    end
+  end
+
+  struct Flt_4 < TypeInfo
+    def self.from_io(io : IO)
+      self.new
+    end
+
+    def decode(io : IO) : Value
+      Float32.from_io(io, ENCODING)
     end
   end
 
