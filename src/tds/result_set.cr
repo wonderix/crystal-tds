@@ -54,6 +54,10 @@ class TDS::ResultSet < DB::ResultSet
     value
   end
 
+  def next_column_index : Int32
+    @column_index
+  end
+
   def read(t : Int64.class) : Int64
     case v = read
     when Number
