@@ -82,6 +82,13 @@ Have a look at the [issue tracker](https://github.com/wonderix/crystal-tds/label
   docker run -e "ACCEPT_EULA=1" -e "MSSQL_SA_PASSWORD=My-Secret-Pass" -e "MSSQL_PID=Developer" -e "MSSQL_USER=SA" -p 1433:1433 -d --name=sql mcr.microsoft.com/azure-sql-edge
   ```
 
+  or
+
+  ```bash
+  podman machine start
+  podman run -e "ACCEPT_EULA=1" -e "MSSQL_SA_PASSWORD=My-Secret-Pass" -e "MSSQL_PID=Developer" -e "MSSQL_USER=SA" -p 1433:1433 -d --name=sql mcr.microsoft.com/azure-sql-edge
+  ```
+
 * Run tests
 
   ```bash

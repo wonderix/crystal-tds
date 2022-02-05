@@ -3,7 +3,7 @@ require "./trace"
 require "./errno"
 
 module TDS
-  alias Value = Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil | Bytes | UUID | Bool
+  alias Value = DB::Any | Int8 | Int16 | UInt8 | UInt16 | UInt32 | UInt64 | Float64 | Float32 | String | Time | BigDecimal | Nil | Bytes | UUID
   alias Decoder = Proc(IO, Value)
   ENCODING = IO::ByteFormat::LittleEndian
 end

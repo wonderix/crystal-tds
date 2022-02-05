@@ -47,7 +47,12 @@ class TDS::PreparedStatement < DB::Statement
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
     ensure_prepared(args)
-    parameters = args.zip(@type_infos).map { |x| Parameter.new(x[0].as(Value), type_info: x[1].as(TypeInfo)) }
+    # Workaround for https://github.com/crystal-lang/crystal/issues/11786
+    a = [] of Value
+    args.each{|x| a.push(x)}
+    parameters = a.zip(@type_infos).map do |x|
+      Parameter.new(x[0], type_info: x[1])
+    end
     connection.send(PacketIO::Type::RPC) do |io|
       RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: [@proc_id.not_nil!] + parameters).write(io)
     end
@@ -63,7 +68,7 @@ class TDS::PreparedStatement < DB::Statement
     begin
       parameters = args.zip(@type_infos).map do |x|
         begin
-          Parameter.new(x[0].as(Value), type_info: x[1].as(TypeInfo))
+          Parameter.new(x[0], type_info: x[1])
         rescue exc : IndexError
           raise DB::Error.new("#{x} : #{exc}")
         end
