@@ -12,7 +12,7 @@ The [C implementation (freetds)](https://www.freetds.org/), the [ the Java imple
 
    ```yaml
    dependencies:
-     crystal-tds:
+     tds:
        github: wonderix/crystal-tds
    ```
 
