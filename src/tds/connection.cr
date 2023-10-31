@@ -10,7 +10,7 @@ class TDS::Connection < DB::Connection
   @socket : TCPSocket
   @packet_size = PacketIO::MIN_SIZE
 
-  record Options, host : String, port : Int32, user : String, password : String, database_name : String, connect_timeout : Time::Span?, read_timeout : Time::Span do
+  record Options, host : String, port : Int32, user : String, password : String, database_name : String, connect_timeout : Time::Span?, read_timeout : Time::Span, isolation_level : String? do
     def self.from_uri(uri : URI) : Options
       params = HTTP::Params.parse(uri.query || "")
 
@@ -21,8 +21,9 @@ class TDS::Connection < DB::Connection
       database_name = File.basename(uri.path || "/")
       connect_timeout = params.has_key?("connect_timeout") ? Time::Span.new(seconds: params["connect_timeout"].to_i) : nil
       read_timeout = Time::Span.new(seconds: params.fetch("read_timeout", "30").to_i)
+      isolation_level = params["isolation_level"]? || "SNAPSHOT"
 
-      Options.new(host: host, port: port, user: user, password: password, database_name: database_name, connect_timeout: connect_timeout, read_timeout: read_timeout)
+      Options.new(host: host, port: port, user: user, password: password, database_name: database_name, connect_timeout: connect_timeout, read_timeout: read_timeout, isolation_level: isolation_level)
     end
   end
 
@@ -58,7 +59,7 @@ class TDS::Connection < DB::Connection
     else
       raise ::Exception.new("Unsupported version #{@version}")
     end
-    self.perform_exec "SET TRANSACTION ISOLATION LEVEL SNAPSHOT"
+    self.perform_exec "SET TRANSACTION ISOLATION LEVEL #{tds_options.isolation_level}"
   end
 
   def send(type : PacketIO::Type, &block : IO ->)
