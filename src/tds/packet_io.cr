@@ -68,7 +68,8 @@ class TDS::PacketIO < IO
         raise ProtocolError.new("Unexpected end of file") if count == 0
         @write_pos += count
       end
-      raise ProtocolError.new if Type.new(Int32.new(@buffer[0])) != @type
+      received_type = Type.new(Int32.new(@buffer[0]))
+      raise ProtocolError.new("Unexpected packet type received: expected type #{@type}, received type #{received_type}") if received_type != @type
       last_pos = Int32.new(NETWORK_ENCODING.decode(UInt16, @buffer[2, 2]))
       @last = @buffer[1] == 1_u8
       while @write_pos < last_pos
