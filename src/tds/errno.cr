@@ -11,6 +11,9 @@ module TDS
   EROLLBACK =   3903 # The ROLLBACK TRANSACTION request has no corresponding BEGIN TRANSACTION
 
   class ProtocolError < DB::Error
+    def initialize(msg = "")
+      super(msg)
+    end
   end
 
   class ServerError < DB::Error
