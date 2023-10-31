@@ -1,13 +1,13 @@
 require "spec"
 require "../src/tds"
 
-def connect(url)
+def connect(uri)
   timeout = Time::Span.new(seconds: 60)
   expiry = Time.local + timeout
-  url = "#{url}?connect_timeout=#{(timeout/5).seconds}"
+  uri = "#{uri}?connect_timeout=#{(timeout/5).seconds}"
   while true
     begin
-      return DB.open(url)
+      return DB.open(uri)
     rescue exc : DB::ConnectionRefused
       raise exc if Time.local > expiry
       sleep(5)
@@ -17,16 +17,21 @@ end
 
 Log.setup_from_env
 
-HOSTNAME = ENV["MSSQL_HOST"]? || "localhost"
-URL      = "tds://sa:My-Secret-Pass@#{HOSTNAME}:1433/test"
+HOST = ENV["MSSQL_HOST"]? || "localhost"
+PORT = ENV["MSSQL_PORT"]? || "1433"
+USER = ENV["MSSQL_USER"]? || "sa"
+PASSWORD = ENV["MSSQL_PASSWORD"]? || "My-Secret-Pass"
+DATABASE_NAME = "test"
 
-MASTER = connect(URL.sub("/test", "?"))
+DATABASE_URI = "tds://#{USER}:#{PASSWORD}@#{HOST}:#{PORT}/#{DATABASE_NAME}"
+
+MASTER = connect(DATABASE_URI.sub("/#{DATABASE_NAME}", "?"))
 begin
-  MASTER.exec("CREATE DATABASE test")
+  MASTER.exec("CREATE DATABASE #{DATABASE_NAME}")
 rescue exc : DB::Error
 end
-MASTER.exec("ALTER DATABASE test SET ALLOW_SNAPSHOT_ISOLATION ON")
-DATABASE = connect(URL)
+MASTER.exec("ALTER DATABASE #{DATABASE_NAME} SET ALLOW_SNAPSHOT_ISOLATION ON")
+DATABASE = connect(DATABASE_URI)
 
 DATABASE.exec("DROP TABLE IF EXISTS TEST")
 DATABASE.exec("CREATE TABLE TEST (c1 TINYINT)")

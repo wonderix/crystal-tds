@@ -2,7 +2,7 @@ require "./spec_helper"
 require "db/spec"
 
 DB::DriverSpecs(DB::Any).run do
-  connection_string URL
+  connection_string DATABASE_URI
 
   before do
   end
