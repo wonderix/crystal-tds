@@ -10,29 +10,32 @@ class TDS::Connection < DB::Connection
   @socket : TCPSocket
   @packet_size = PacketIO::MIN_SIZE
 
-  def initialize(database)
-    super
-    user = database.uri.user || ""
-    password = database.uri.password || ""
-    host = database.uri.host || "localhost"
-    port = database.uri.port || 1433
-    database_name = File.basename(database.uri.path || "/")
-    connect_timeout = nil
-    read_timeout = Time::Span.new(seconds: 30)
-    database.uri.query.try do |query|
-      params = HTTP::Params.parse(query)
-      ct = params["connect_timeout"]?
-      connect_timeout = Time::Span.new(seconds: ct.to_i) if ct
-      rt = params["read_timeout"]?
-      read_timeout = Time::Span.new(seconds: rt.to_i) if rt
+  record Options, host : String, port : Int32, user : String, password : String, database_name : String, connect_timeout : Time::Span?, read_timeout : Time::Span do
+    def self.from_uri(uri : URI) : Options
+      params = HTTP::Params.parse(uri.query || "")
+
+      host = uri.host || "localhost"
+      port = uri.port || 1433
+      user = uri.user || ""
+      password = uri.password || ""
+      database_name = File.basename(uri.path || "/")
+      connect_timeout = params.has_key?("connect_timeout") ? Time::Span.new(seconds: params["connect_timeout"].to_i) : nil
+      read_timeout = Time::Span.new(seconds: params.fetch("read_timeout", "30").to_i)
+
+      Options.new(host: host, port: port, user: user, password: password, database_name: database_name, connect_timeout: connect_timeout, read_timeout: read_timeout)
     end
+  end
+
+  def initialize(options : DB::Connection::Options, tds_options : TDS::Connection::Options)
+    super(options)
+
     begin
-      socket = TCPSocket.new(host, port, connect_timeout: connect_timeout)
+      socket = TCPSocket.new(tds_options.host, tds_options.port, connect_timeout: tds_options.connect_timeout)
     rescue exc : Socket::ConnectError
       raise DB::ConnectionRefused.new
     end
     @socket = socket
-    @socket.read_timeout = read_timeout
+    @socket.read_timeout = tds_options.read_timeout
     case @version
     when Version::V9_0
       PacketIO.send(@socket, PacketIO::Type::PRE_LOGIN) do |io|
@@ -40,7 +43,7 @@ class TDS::Connection < DB::Connection
       end
     when Version::V7_1
       PacketIO.send(@socket, PacketIO::Type::MSLOGIN) do |io|
-        LoginRequest.new(user, password, appname: "crystal-tds", database_name: database_name).write(io, @version)
+        LoginRequest.new(tds_options.user, tds_options.password, appname: "crystal-tds", database_name: tds_options.database_name).write(io, @version)
       end
       PacketIO.recv(@socket, PacketIO::Type::REPLY) do |io|
         Token.each(io) do |token|
