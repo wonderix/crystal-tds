@@ -21,7 +21,7 @@ class TDS::Connection < DB::Connection
       database_name = File.basename(uri.path || "/")
       connect_timeout = params.has_key?("connect_timeout") ? Time::Span.new(seconds: params["connect_timeout"].to_i) : nil
       read_timeout = Time::Span.new(seconds: params.fetch("read_timeout", "30").to_i)
-      isolation_level = params["isolation_level"]? || "SNAPSHOT"
+      isolation_level = params["isolation_level"]?
 
       Options.new(host: host, port: port, user: user, password: password, database_name: database_name, connect_timeout: connect_timeout, read_timeout: read_timeout, isolation_level: isolation_level)
     end
@@ -59,7 +59,7 @@ class TDS::Connection < DB::Connection
     else
       raise ::Exception.new("Unsupported version #{@version}")
     end
-    self.perform_exec "SET TRANSACTION ISOLATION LEVEL #{tds_options.isolation_level}"
+    self.perform_exec "SET TRANSACTION ISOLATION LEVEL #{tds_options.isolation_level}" if tds_options.isolation_level
   end
 
   def send(type : PacketIO::Type, &block : IO ->)
