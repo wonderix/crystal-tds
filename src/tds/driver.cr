@@ -5,8 +5,8 @@ class TDS::Driver < DB::Driver
 
     def build : DB::Connection
       TDS::Connection.new(@options, @tds_options)
+    end
   end
-end
 
   def connection_builder(uri : URI) : DB::ConnectionBuilder
     params = HTTP::Params.parse(uri.query || "")
