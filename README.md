@@ -71,7 +71,7 @@ Have a look at the [issue tracker](https://github.com/wonderix/crystal-tds/label
 
 ## Testing
 
-* Run Microsoft SQL Server inside docher
+* Run Microsoft SQL Server inside docker
   ```bash
   docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=My-Secret-Pass' -e 'MSSQL_PID=Express' -p 1433:1433 -d mcr.microsoft.com/mssql/server
   ```

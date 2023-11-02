@@ -4,7 +4,7 @@ jobs:
   crystal-spec:
     runs-on: ubuntu-latest
     container: 
-      image: crystallang/crystal:0.35.1-alpine-build
+      image: crystallang/crystal:1.10.1-alpine-build
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server
