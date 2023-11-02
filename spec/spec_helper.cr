@@ -1,10 +1,13 @@
 require "spec"
 require "../src/tds"
 
-def connect(uri)
+def connect(connection_string)
   timeout = Time::Span.new(seconds: 60)
   expiry = Time.local + timeout
-  uri = "#{uri}?connect_timeout=#{(timeout/5).seconds}"
+
+  uri = URI.parse connection_string
+  uri.query_params["connect_timeout"] = "#{(timeout/5).seconds}"
+
   while true
     begin
       return DB.open(uri)
@@ -23,9 +26,9 @@ USER = ENV["MSSQL_USER"]? || "sa"
 PASSWORD = ENV["MSSQL_PASSWORD"]? || "My-Secret-Pass"
 DATABASE_NAME = "test"
 
-DATABASE_URI = "tds://#{USER}:#{PASSWORD}@#{HOST}:#{PORT}/#{DATABASE_NAME}"
+DATABASE_URI = "tds://#{USER}:#{PASSWORD}@#{HOST}:#{PORT}/#{DATABASE_NAME}?isolation_level=SNAPSHOT"
 
-MASTER = connect(DATABASE_URI.sub("/#{DATABASE_NAME}", "?"))
+MASTER = connect(DATABASE_URI.sub("/#{DATABASE_NAME}", ""))
 begin
   MASTER.exec("CREATE DATABASE #{DATABASE_NAME}")
 rescue exc : DB::Error
