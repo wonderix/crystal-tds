@@ -14,7 +14,7 @@ jobs:
           SA_PASSWORD: My-Secret-Pass
           MSSQL_PID: Express
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: crystal spec
       run: |
         shards install
