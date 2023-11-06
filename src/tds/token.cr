@@ -179,7 +179,15 @@ module TDS::Token
     end
   end
 
-  alias Token = InfoOrError | MetaData | LogInAck | Row | Done | DoneInProc | EnvChange | ReturnStatus | Param
+  struct Order
+    def self.from_io(io : IO)
+      len = UInt16.from_io(io, ENCODING)
+      io.seek(len, IO::Seek::Current)
+      Order.new
+    end
+  end
+
+  alias Token = InfoOrError | MetaData | LogInAck | Row | Done | DoneInProc | EnvChange | ReturnStatus | Param | Order
 
   private class Iterator
     include ::Iterator(Token)
@@ -224,6 +232,8 @@ module TDS::Token
           ReturnStatus.from_io(@io)
         when Type::PARAM
           Param.from_io(@io)
+        when Type::ORDER
+          Order.from_io(@io)
         else
           raise ProtocolError.new("Invalid token #{"0x%02x" % type} at position #{"0x%04x" % @io.pos}")
         end
