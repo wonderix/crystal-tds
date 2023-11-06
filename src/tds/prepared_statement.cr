@@ -17,10 +17,10 @@ class TDS::PreparedStatement < DB::Statement
         index += 1
         PreparedStatement.encode(args[index])
       rescue ::IndexError
-        raise DB::Error.new("To few arguments for statement #{command}")
+        raise DB::Error.new("Too few arguments specified for statement: #{command}")
       end
     end
-    raise DB::Error.new("To much arguments for statement #{command}") if index != args.size - 1
+    raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != args.size - 1
     cmd
   end
 
@@ -38,10 +38,10 @@ class TDS::PreparedStatement < DB::Statement
         params << "#{param} #{type_info.type}"
         param
       rescue ::IndexError
-        raise DB::Error.new("To few arguments for statement #{command}")
+        raise DB::Error.new("Too few arguments specified for statement: #{command}")
       end
     end
-    raise DB::Error.new("To much arguments for statement #{command}") if index != args.size - 1
+    raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != args.size - 1
     @proc_id = Parameter.new(connection.sp_prepare(params.join(","), cmd))
   end
 
