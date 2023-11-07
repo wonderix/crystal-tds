@@ -1,6 +1,6 @@
 class TDS::ResultSet < DB::ResultSet
   DATETIME_FORMAT = Time::Format.new("%Y-%m-%d %H:%M:%S")
-  DATE_FORMAT = Time::Format.new("%Y-%m-%d")
+  DATE_FORMAT     = Time::Format.new("%Y-%m-%d")
   @row : Token::Row? = nil
   @metadata : Token::MetaData
   @column_index = 0
