@@ -127,6 +127,8 @@ module TDS
         UniqueIdentifier.from_io(io)
       when Type::BIT
         Bit.from_io(io)
+      when Type::BITN
+        Bit_n.from_io(io)
       else
         raise ProtocolError.new("Unsupported column type #{type} at position #{"0x%04x" % io.pos}")
       end
@@ -357,6 +359,51 @@ module TDS
 
     def decode(io : IO) : Value
       UInt8.from_io(io, ENCODING)
+    end
+  end
+
+  struct Bit_n < TypeInfo
+    def initialize(@expected_len : UInt8)
+    end
+
+    def self.from_io(io : IO)
+      len = UInt8.from_io(io, ENCODING)
+      trace(len)
+      self.new(len)
+    end
+
+    def type : String
+      "BIT"
+    end
+
+    def write(io : IO)
+      ENCODING.encode(UInt8.new(TypeInfo::Type::BITN.value), io)
+      ENCODING.encode(@expected_len, io)
+    end
+
+    def encode(value : Value, io : IO)
+      case value
+      when Nil
+        ENCODING.encode(0x0_u8, io)
+      when Number
+        ENCODING.encode(0x1_u8, io)
+        ENCODING.encode(value.to_u8.bit(0), io)
+      else
+        raise ProtocolError.new("Unsupported value #{value}")
+      end
+    end
+
+    def decode(io : IO) : Value
+      len = UInt8.from_io(io, ENCODING)
+      case len
+      when 0
+        nil
+      when 1
+        raise ProtocolError.new if len != @expected_len
+        UInt8.from_io(io, ENCODING)
+      else
+        raise ProtocolError.new
+      end
     end
   end
 
