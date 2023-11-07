@@ -20,10 +20,10 @@ end
 
 Log.setup_from_env
 
-HOST = ENV["MSSQL_HOST"]? || "localhost"
-PORT = ENV["MSSQL_PORT"]? || "1433"
-USER = ENV["MSSQL_USER"]? || "sa"
-PASSWORD = ENV["MSSQL_PASSWORD"]? || "My-Secret-Pass"
+HOST          = ENV["MSSQL_HOST"]? || "localhost"
+PORT          = ENV["MSSQL_PORT"]? || "1433"
+USER          = ENV["MSSQL_USER"]? || "sa"
+PASSWORD      = ENV["MSSQL_PASSWORD"]? || "My-Secret-Pass"
 DATABASE_NAME = "test"
 
 DATABASE_URI = "tds://#{USER}:#{PASSWORD}@#{HOST}:#{PORT}/#{DATABASE_NAME}?isolation_level=SNAPSHOT"

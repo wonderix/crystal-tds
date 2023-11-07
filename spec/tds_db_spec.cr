@@ -26,10 +26,9 @@ DB::DriverSpecs(DB::Any).run do
   sample_value Time.utc(2016, 2, 15, 10, 20, 30), "DATETIME", "'2016-02-15 10:20:30.000'", type_safe_value: false
   sample_value Time.utc(2016, 2, 15, 10, 20, 30), "DATETIME2", "'2016-02-15 10:20:30.000000'", type_safe_value: false
   sample_value Time.utc(2016, 2, 15, 10, 21, 0), "SMALLDATETIME", "'2016-02-15 10:21:00'", type_safe_value: false
-  sample_value Time.utc(2016, 2, 15) , "DATE", "'2016-02-15'", type_safe_value: false
-  sample_value "hello",  "TEXT", "'hello'"
-  sample_value "hello",  "NTEXT", "'hello'"
-
+  sample_value Time.utc(2016, 2, 15), "DATE", "'2016-02-15'", type_safe_value: false
+  sample_value "hello", "TEXT", "'hello'"
+  sample_value "hello", "NTEXT", "'hello'"
 
   binding_syntax do |index|
     "?"

@@ -49,7 +49,7 @@ class TDS::PreparedStatement < DB::Statement
     ensure_prepared(args)
     # Workaround for https://github.com/crystal-lang/crystal/issues/11786
     a = [] of Value
-    args.each{|x| a.push(x)}
+    args.each { |x| a.push(x) }
     parameters = a.zip(@type_infos).map do |x|
       Parameter.new(x[0], type_info: x[1])
     end
