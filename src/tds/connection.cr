@@ -89,6 +89,7 @@ class TDS::Connection < DB::Connection
         Token.each(io) do |token|
           case token
           when Token::MetaData
+          when Token::Order
           when Token::ReturnStatus
           when Token::DoneInProc
           when Token::Param
