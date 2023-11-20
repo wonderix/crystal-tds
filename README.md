@@ -20,7 +20,6 @@ The [C implementation (freetds)](https://www.freetds.org/), the [ the Java imple
 
 ## Usage
 
-
 This driver now uses the `crystal-db` project. Documentation on connecting,
 querying, etc, can be found at:
 
@@ -29,32 +28,31 @@ querying, etc, can be found at:
 
 ## Supported data types
 
-* TINYINT
-* SMALLINT
-* INT
 * BIGINT
-* DECIMAL
-* NUMERIC
-* FLOAT
-* REAL
-* VARCHAR
-* NVARCHAR
+* BIT
 * DATE
 * DATETIME
 * DATETIME2
-* SMALLDATETIME
-* TEXT
+* DECIMAL
+* FLOAT
+* INT
 * NTEXT
+* NUMERIC
+* NVARCHAR
+* REAL
+* SMALLDATETIME
+* SMALLINT
+* TEXT
+* TINYINT
+* VARCHAR
 
 ## Restriction
-
 
 Have a look at the [issue tracker](https://github.com/wonderix/crystal-tds/labels/restriction) to get an overview over all restrictions.
 
 ## Development
 
 * Install Docker
-
 
 ## Contributing
 
@@ -67,7 +65,6 @@ Have a look at the [issue tracker](https://github.com/wonderix/crystal-tds/label
 ## Contributors
 
 - [Ulrich Kramer](https://github.com/wonderix) - creator and maintainer
-
 
 ## Testing
 
