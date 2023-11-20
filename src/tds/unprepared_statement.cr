@@ -17,7 +17,7 @@ class TDS::UnpreparedStatement < DB::Statement
         raise DB::Error.new("Too few arguments for statement #{command}")
       end
     end
-    raise DB::Error.new("Too much arguments for statement #{command}") if index != args.size - 1
+    raise DB::Error.new("Too many arguments for statement #{command}") if index != args.size - 1
     cmd
   end
 
