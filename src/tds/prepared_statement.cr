@@ -16,8 +16,8 @@ class TDS::PreparedStatement < DB::Statement
       begin
         index += 1
         PreparedStatement.encode(args[index])
-      rescue ::IndexError
-        raise DB::Error.new("Too few arguments specified for statement: #{command}")
+      rescue ex : ::IndexError
+        raise DB::Error.new("Too few arguments specified for statement: #{command}", ex)
       end
     end
     raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != args.size - 1
@@ -37,8 +37,8 @@ class TDS::PreparedStatement < DB::Statement
         @type_infos << type_info
         params << "#{param} #{type_info.type}"
         param
-      rescue ::IndexError
-        raise DB::Error.new("Too few arguments specified for statement: #{command}")
+      rescue ex : ::IndexError
+        raise DB::Error.new("Too few arguments specified for statement: #{command}", ex)
       end
     end
     raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != args.size - 1
@@ -61,6 +61,8 @@ class TDS::PreparedStatement < DB::Statement
       result = ResultSet.new(self, Token.each(io))
     end
     result.not_nil!
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(connection, ex)
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
@@ -69,24 +71,24 @@ class TDS::PreparedStatement < DB::Statement
       parameters = args.zip(@type_infos).map do |x|
         begin
           Parameter.new(x[0], type_info: x[1])
-        rescue exc : IndexError
-          raise DB::Error.new("#{x} : #{exc}")
+        rescue ex : IndexError
+          raise DB::Error.new("#{x} : #{ex}", ex)
         end
       end
-    rescue exc : IndexError
-      raise DB::Error.new("#{args} #{@type_infos} #{command}: #{exc}")
+    rescue ex : IndexError
+      raise DB::Error.new("#{args} #{@type_infos} #{command}: #{ex}", ex)
     end
     connection.send(PacketIO::Type::RPC) do |io|
       RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: [@proc_id.not_nil!] + parameters).write(io)
     end
     connection.recv(PacketIO::Type::REPLY) do |io|
-      begin
-        Token.each(io) { |t| }
-      rescue exc : ::Exception
-        raise DB::Error.new("#{exc.to_s} in \"#{command}\"")
-      end
+      Token.each(io) { |t| }
     end
     DB::ExecResult.new 0, 0
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(connection, ex)
+  rescue ex
+    raise DB::Error.new("#{ex.to_s} in \"#{command}\"", ex)
   end
 
   protected def do_close

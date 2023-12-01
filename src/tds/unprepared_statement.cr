@@ -30,6 +30,8 @@ class TDS::UnpreparedStatement < DB::Statement
       result = ResultSet.new(self, Token.each(io))
     end
     result.not_nil!
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(connection, ex)
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
@@ -38,13 +40,13 @@ class TDS::UnpreparedStatement < DB::Statement
       UTF16_IO.write(io, statement, ENCODING)
     end
     connection.recv(PacketIO::Type::REPLY) do |io|
-      begin
-        Token.each(io) { |t| }
-      rescue exc : ::Exception
-        raise StatementError.new(exc, statement)
-      end
+      Token.each(io) { |t| }
     end
     DB::ExecResult.new 0, 0
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(connection, ex)
+  rescue ex
+    raise StatementError.new(ex, statement.to_s)
   end
 
   protected def do_close

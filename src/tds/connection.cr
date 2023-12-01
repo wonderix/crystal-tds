@@ -32,8 +32,8 @@ class TDS::Connection < DB::Connection
 
     begin
       socket = TCPSocket.new(tds_options.host, tds_options.port, connect_timeout: tds_options.connect_timeout)
-    rescue exc : Socket::ConnectError
-      raise DB::ConnectionRefused.new
+    rescue ex : Socket::ConnectError
+      raise DB::ConnectionRefused.new(cause: ex)
     end
     @socket = socket
     @socket.read_timeout = tds_options.read_timeout
@@ -84,25 +84,25 @@ class TDS::Connection < DB::Connection
       ]).write(io)
     end
     result : Int32? = nil
-    begin
-      recv(PacketIO::Type::REPLY) do |io|
-        Token.each(io) do |token|
-          case token
-          when Token::MetaData
-          when Token::Order
-          when Token::ReturnStatus
-          when Token::DoneInProc
-          when Token::Param
-            result = token.value.as(Int32)
-          else
-            raise ProtocolError.new("Unexpected token #{token.inspect}")
-          end
+    recv(PacketIO::Type::REPLY) do |io|
+      Token.each(io) do |token|
+        case token
+        when Token::MetaData
+        when Token::Order
+        when Token::ReturnStatus
+        when Token::DoneInProc
+        when Token::Param
+          result = token.value.as(Int32)
+        else
+          raise ProtocolError.new("Unexpected token #{token.inspect}")
         end
       end
-    rescue exc : ::Exception
-      raise DB::Error.new("#{exc.to_s} while preparing \"#{statement}\"")
     end
     result.not_nil!
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(self, ex)
+  rescue ex
+    raise DB::Error.new("#{ex.to_s} while preparing \"#{statement}\"", ex)
   end
 
   protected def perform_exec(statement)
@@ -110,12 +110,12 @@ class TDS::Connection < DB::Connection
       UTF16_IO.write(io, statement, ENCODING)
     end
     recv(PacketIO::Type::REPLY) do |io|
-      begin
-        Token.each(io) { |t| }
-      rescue exc : ::Exception
-        raise DB::Error.new("#{exc.to_s} in \"#{statement}\"")
-      end
+      Token.each(io) { |t| }
     end
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(self, ex)
+  rescue ex
+    raise DB::Error.new("#{ex.to_s} in \"#{statement}\"", ex)
   end
 
   def build_prepared_statement(query) : DB::Statement
