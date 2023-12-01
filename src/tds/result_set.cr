@@ -31,9 +31,12 @@ class TDS::ResultSet < DB::ResultSet
     while !@done
       token = begin
         @iterator.next
-      rescue exc : ::Exception
+      rescue ex : IO::Error
         @done = true
-        raise DB::Error.new("#{exc.to_s} in \"#{statement.command}\"")
+        raise DB::ConnectionLost.new(statement.connection, ex)
+      rescue ex
+        @done = true
+        raise DB::Error.new("#{ex.to_s} in \"#{statement.command}\"", ex)
       end
       case token
       when Token::Row

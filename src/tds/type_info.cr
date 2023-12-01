@@ -157,7 +157,7 @@ module TDS
       when Nil
         NVarchar.new(1)
       else
-        raise NotImplemented.new("Invalid type #{value.inspect}")
+        raise NotImplemented.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: String | Int8 | Int16 | Int32 | Int64 | Float32 | Float64 | Time | BigDecimal | Nil)")
       end
     end
   end
@@ -252,7 +252,7 @@ module TDS
           ENCODING.encode(value.to_i64, io)
         end
       else
-        raise ProtocolError.new("Unsupported value #{value}")
+        raise ProtocolError.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: Number | Nil)")
       end
     end
 
@@ -389,7 +389,7 @@ module TDS
         ENCODING.encode(0x1_u8, io)
         ENCODING.encode(value.to_u8.bit(0), io)
       else
-        raise ProtocolError.new("Unsupported value #{value}")
+        raise ProtocolError.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: Number | Nil)")
       end
     end
 
@@ -467,7 +467,7 @@ module TDS
           ENCODING.encode(value.to_f64, io)
         end
       else
-        raise ProtocolError.new("Unsupported value #{value}")
+        raise ProtocolError.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: Number | Nil)")
       end
     end
 
@@ -559,7 +559,7 @@ module TDS
         ENCODING.encode(days, io)
         ENCODING.encode(fraction, io)
       else
-        raise ProtocolError.new("Unsupported value #{value}")
+        raise ProtocolError.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: Time | Nil)")
       end
     end
 
@@ -622,7 +622,7 @@ module TDS
         ENCODING.encode(sign, io)
         io.write(data.to_slice)
       else
-        raise ProtocolError.new("Unsupported value #{value}")
+        raise ProtocolError.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: BigDecimal | Nil)")
       end
     end
 
@@ -678,7 +678,7 @@ module TDS
         ENCODING.encode(UInt16.new(value.size * 2), io)
         UTF16_IO.write(io, value, ENCODING)
       else
-        raise ProtocolError.new("Unsupported value #{value}")
+        raise ProtocolError.new("Unsupported value : #{value.class} = #{value.inspect} (expected type: String | Nil)")
       end
     end
 
