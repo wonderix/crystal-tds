@@ -7,7 +7,8 @@ module TDS
       BY_REFERENCE  = 0x01
       DEFAULT_VALUE = 0x02
     end
-    @type_info : TypeInfo
+
+    getter value : Value, type_info : TypeInfo, name : String, status : Status
 
     def initialize(@value : Value, type_info : TypeInfo? = nil, @name = "", @status = Status.new(0))
       @type_info = type_info || TypeInfo.from_value(@value)
@@ -26,8 +27,9 @@ module TDS
     PROCEDURE_NAME_LENGTH = 0xffff_u16
 
     enum Type
-      EXECUTE = 12
-      PREPARE = 11
+      EXECUTE   = 12
+      PREPARE   = 11
+      UNPREPARE = 15
     end
 
     def initialize(@id : Type, @parameters : Array(Parameter), @options = 0_u16)

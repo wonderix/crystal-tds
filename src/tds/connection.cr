@@ -105,6 +105,30 @@ class TDS::Connection < DB::Connection
     raise DB::Error.new("#{ex.to_s} while preparing \"#{statement}\"", ex)
   end
 
+  def sp_unprepare(handle : Int32) : UInt32
+    return_status : UInt32? = nil
+    send(PacketIO::Type::RPC) do |io|
+      RpcRequest.new(id: RpcRequest::Type::UNPREPARE, parameters: [
+        Parameter.new(handle),
+      ]).write(io)
+    end
+    recv(PacketIO::Type::REPLY) do |io|
+      Token.each(io) do |token|
+        case token
+        when Token::ReturnStatus
+          return_status = token.status
+        else
+          raise ProtocolError.new("Unexpected token #{token.inspect}")
+        end
+      end
+    end
+    return_status.not_nil!
+  rescue ex : IO::Error
+    raise DB::ConnectionLost.new(self, ex)
+  rescue ex
+    raise DB::Error.new("#{ex.to_s} while unpreparing \"#{handle}\"", ex)
+  end
+
   protected def perform_exec(statement)
     send(PacketIO::Type::QUERY) do |io|
       UTF16_IO.write(io, statement, ENCODING)
@@ -131,8 +155,8 @@ class TDS::Connection < DB::Connection
   end
 
   def do_close
-    @socket.close
     super
+    @socket.close
   end
 
   # :nodoc:

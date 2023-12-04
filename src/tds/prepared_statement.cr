@@ -2,59 +2,38 @@ require "./utf16_io"
 require "./type_info"
 
 class TDS::PreparedStatement < DB::Statement
-  @proc_id : Parameter? = nil
-  @type_infos = [] of TypeInfo
+  @handles = Hash(String, Parameter).new
 
   def initialize(connection, command)
     super(connection, command)
   end
 
-  private def expanded_command(e : Enumerable)
-    index = -1
-    args = e.to_a
-    cmd = command.gsub(/\?/) do |s|
-      begin
-        index += 1
-        PreparedStatement.encode(args[index])
-      rescue ex : ::IndexError
-        raise DB::Error.new("Too few arguments specified for statement: #{command}", ex)
+  private def ensure_prepared(args : Enumerable) : Array(Parameter)
+    arguments = parameterize args
+    key = arguments.map(&.type_info.type).join(",")
+    handle = @handles.fetch(key) {
+      index = -1
+      params = Array(String).new
+      cmd = command.gsub(/\?/) do |s|
+        begin
+          index += 1
+          param = "@P#{index}"
+          params << "#{param} #{arguments[index].type_info.type}"
+          param
+        rescue ex : ::IndexError
+          raise DB::Error.new("Too few arguments specified for statement: #{command}", ex)
+        end
       end
-    end
-    raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != args.size - 1
-    cmd
-  end
-
-  private def ensure_prepared(e : Enumerable)
-    return unless @proc_id.nil?
-    index = -1
-    args = e.to_a
-    params = [] of String
-    cmd = command.gsub(/\?/) do |s|
-      begin
-        index += 1
-        param = "@P#{index}"
-        type_info = TypeInfo.from_value(args[index])
-        @type_infos << type_info
-        params << "#{param} #{type_info.type}"
-        param
-      rescue ex : ::IndexError
-        raise DB::Error.new("Too few arguments specified for statement: #{command}", ex)
-      end
-    end
-    raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != args.size - 1
-    @proc_id = Parameter.new(connection.sp_prepare(params.join(","), cmd))
+      raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != arguments.size - 1
+      Parameter.new(connection.sp_prepare(params.join(","), cmd))
+    }
+    [handle] + arguments
   end
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
-    ensure_prepared(args)
-    # Workaround for https://github.com/crystal-lang/crystal/issues/11786
-    a = [] of Value
-    args.each { |x| a.push(x) }
-    parameters = a.zip(@type_infos).map do |x|
-      Parameter.new(x[0], type_info: x[1])
-    end
+    parameters = ensure_prepared(args)
     connection.send(PacketIO::Type::RPC) do |io|
-      RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: [@proc_id.not_nil!] + parameters).write(io)
+      RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: parameters).write(io)
     end
     result = nil
     connection.recv(PacketIO::Type::REPLY) do |io|
@@ -66,20 +45,9 @@ class TDS::PreparedStatement < DB::Statement
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
-    ensure_prepared(args)
-    begin
-      parameters = args.zip(@type_infos).map do |x|
-        begin
-          Parameter.new(x[0], type_info: x[1])
-        rescue ex : IndexError
-          raise DB::Error.new("#{x} : #{ex}", ex)
-        end
-      end
-    rescue ex : IndexError
-      raise DB::Error.new("#{args} #{@type_infos} #{command}: #{ex}", ex)
-    end
+    parameters = ensure_prepared(args)
     connection.send(PacketIO::Type::RPC) do |io|
-      RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: [@proc_id.not_nil!] + parameters).write(io)
+      RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: parameters).write(io)
     end
     connection.recv(PacketIO::Type::REPLY) do |io|
       Token.each(io) { |t| }
@@ -91,7 +59,19 @@ class TDS::PreparedStatement < DB::Statement
     raise DB::Error.new("#{ex.to_s} in \"#{command}\"", ex)
   end
 
+  protected def parameterize(args : Enumerable) : Array(Parameter)
+    args.to_a.map { |arg| Parameter.new(arg).as(Parameter) }
+  end
+
   protected def do_close
     super
+    @handles.each_value do |handle|
+      begin
+        connection.sp_unprepare handle.value.as(Int32)
+      rescue ex : DB::Error
+        # ignore errors when unpreparing to not affect the connection being closed
+      end
+    end
+    @handles.clear
   end
 end

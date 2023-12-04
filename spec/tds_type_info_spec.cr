@@ -31,6 +31,13 @@ describe TDS::TypeInfo do
       test_encoding(TDS::Int_n.new(8), nil)
     end
   end
+  describe TDS::Bit_n do
+    it "encodes and decodes correct" do
+      test_encoding(TDS::Bit_n.new(1), 0)
+      test_encoding(TDS::Bit_n.new(1), 1)
+      test_encoding(TDS::Bit_n.new(0), nil)
+    end
+  end
   describe TDS::Flt_n do
     it "encodes and decodes correct" do
       test_encoding(TDS::Flt_n.new(4), 1.0)
