@@ -4,8 +4,7 @@ version: 0.2.0
 dependencies:
   db:
     github: crystal-lang/crystal-db
-    #version: ~> 0.12.0
-    commit: 06df272740fb9141050681ae916c465cc8e70584
+    version: 0.13.1
 
 authors:
   - Ulrich Kramer <ulrich.kramer@web.de>
