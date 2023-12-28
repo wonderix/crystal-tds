@@ -1,10 +1,10 @@
 name: tds
-version: 0.2.0
+version: 0.3.1
 
 dependencies:
   db:
     github: crystal-lang/crystal-db
-    version: 0.13.1
+    version: "~> 0.13"
 
 authors:
   - Ulrich Kramer <ulrich.kramer@web.de>
