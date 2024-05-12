@@ -22,29 +22,29 @@ class TDS::UnpreparedStatement < DB::Statement
   end
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
-    connection.send(PacketIO::Type::QUERY) do |io|
+    conn.send(PacketIO::Type::QUERY) do |io|
       UTF16_IO.write(io, expanded_command(args), ENCODING)
     end
     result = nil
-    connection.recv(PacketIO::Type::REPLY) do |io|
+    conn.recv(PacketIO::Type::REPLY) do |io|
       result = ResultSet.new(self, Token.each(io))
     end
     result.not_nil!
   rescue ex : IO::Error
-    raise DB::ConnectionLost.new(connection, ex)
+    raise DB::ConnectionLost.new(conn, ex)
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
     statement = expanded_command(args)
-    connection.send(PacketIO::Type::QUERY) do |io|
+    conn.send(PacketIO::Type::QUERY) do |io|
       UTF16_IO.write(io, statement, ENCODING)
     end
-    connection.recv(PacketIO::Type::REPLY) do |io|
+    conn.recv(PacketIO::Type::REPLY) do |io|
       Token.each(io) { |t| }
     end
     DB::ExecResult.new 0, 0
   rescue ex : IO::Error
-    raise DB::ConnectionLost.new(connection, ex)
+    raise DB::ConnectionLost.new(conn, ex)
   rescue ex
     raise StatementError.new(ex, statement.to_s)
   end
@@ -67,5 +67,9 @@ class TDS::UnpreparedStatement < DB::Statement
 
   protected def self.encode(value : Nil)
     "NULL"
+  end
+
+  protected def conn
+    @connection.as(Connection)
   end
 end
