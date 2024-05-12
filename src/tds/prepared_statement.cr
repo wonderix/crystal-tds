@@ -25,36 +25,36 @@ class TDS::PreparedStatement < DB::Statement
         end
       end
       raise DB::Error.new("Too many arguments specified for statement: #{command}") if index != arguments.size - 1
-      Parameter.new(connection.sp_prepare(params.join(","), cmd))
+      Parameter.new(conn.sp_prepare(params.join(","), cmd))
     }
     [handle] + arguments
   end
 
   protected def perform_query(args : Enumerable) : DB::ResultSet
     parameters = ensure_prepared(args)
-    connection.send(PacketIO::Type::RPC) do |io|
+    conn.send(PacketIO::Type::RPC) do |io|
       RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: parameters).write(io)
     end
     result = nil
-    connection.recv(PacketIO::Type::REPLY) do |io|
+    conn.recv(PacketIO::Type::REPLY) do |io|
       result = ResultSet.new(self, Token.each(io))
     end
     result.not_nil!
   rescue ex : IO::Error
-    raise DB::ConnectionLost.new(connection, ex)
+    raise DB::ConnectionLost.new(conn, ex)
   end
 
   protected def perform_exec(args : Enumerable) : DB::ExecResult
     parameters = ensure_prepared(args)
-    connection.send(PacketIO::Type::RPC) do |io|
+    conn.send(PacketIO::Type::RPC) do |io|
       RpcRequest.new(id: RpcRequest::Type::EXECUTE, parameters: parameters).write(io)
     end
-    connection.recv(PacketIO::Type::REPLY) do |io|
+    conn.recv(PacketIO::Type::REPLY) do |io|
       Token.each(io) { |t| }
     end
     DB::ExecResult.new 0, 0
   rescue ex : IO::Error
-    raise DB::ConnectionLost.new(connection, ex)
+    raise DB::ConnectionLost.new(conn, ex)
   rescue ex
     raise DB::Error.new("#{ex.to_s} in \"#{command}\"", ex)
   end
@@ -67,11 +67,15 @@ class TDS::PreparedStatement < DB::Statement
     super
     @handles.each_value do |handle|
       begin
-        connection.sp_unprepare handle.value.as(Int32)
+        conn.sp_unprepare handle.value.as(Int32)
       rescue ex : DB::Error
         # ignore errors when unpreparing to not affect the connection being closed
       end
     end
     @handles.clear
+  end
+
+  protected def conn
+    @connection.as(Connection)
   end
 end
