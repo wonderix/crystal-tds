@@ -13,7 +13,7 @@ def connect(connection_string)
       return DB.open(uri)
     rescue exc : DB::ConnectionRefused
       raise exc if Time.local > expiry
-      sleep(5)
+      sleep(5.seconds)
     end
   end
 end
