@@ -1,5 +1,5 @@
 class TDS::Driver < DB::Driver
-  class TDS::ConnectionBuilder < DB::ConnectionBuilder
+  class ConnectionBuilder < DB::ConnectionBuilder
     def initialize(@options : DB::Connection::Options, @tds_options : TDS::Connection::Options)
     end
 
@@ -10,7 +10,7 @@ class TDS::Driver < DB::Driver
 
   def connection_builder(uri : URI) : DB::ConnectionBuilder
     params = HTTP::Params.parse(uri.query || "")
-    ConnectionBuilder.new(connection_options(params), TDS::Connection::Options.from_uri(uri))
+    TDS::Driver::ConnectionBuilder.new(connection_options(params), TDS::Connection::Options.from_uri(uri))
   end
 end
 
