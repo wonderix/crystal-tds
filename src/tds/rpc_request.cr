@@ -27,9 +27,10 @@ module TDS
     PROCEDURE_NAME_LENGTH = 0xffff_u16
 
     enum Type
-      EXECUTE   = 12
-      PREPARE   = 11
-      UNPREPARE = 15
+      EXECUTESQL = 10
+      EXECUTE    = 12
+      PREPARE    = 11
+      UNPREPARE  = 15
     end
 
     def initialize(@id : Type, @parameters : Array(Parameter), @options = 0_u16)

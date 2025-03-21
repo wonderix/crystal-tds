@@ -146,11 +146,7 @@ class TDS::Connection < DB::Connection
   end
 
   def build_prepared_statement(query) : DB::Statement
-    if query.includes?('?')
-      PreparedStatement.new(self, query)
-    else
-      UnpreparedStatement.new(self, query)
-    end
+    PreparedStatement.new(self, query)
   end
 
   def build_unprepared_statement(query) : DB::Statement
