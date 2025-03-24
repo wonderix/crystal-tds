@@ -10,7 +10,7 @@ class TDS::Connection < DB::Connection
   @socket : TCPSocket
   @packet_size = PacketIO::MIN_SIZE
 
-  record Options, host : String, port : Int32, user : String, password : String, database_name : String, connect_timeout : Time::Span?, read_timeout : Time::Span, isolation_level : String? do
+  record Options, host : String, port : Int32, user : String, password : String, database_name : String, dns_timeout : Time::Span?, connect_timeout : Time::Span?, read_timeout : Time::Span?, write_timeout : Time::Span?, isolation_level : String? do
     def self.from_uri(uri : URI) : Options
       params = HTTP::Params.parse(uri.query || "")
 
@@ -19,11 +19,13 @@ class TDS::Connection < DB::Connection
       user = uri.user || ""
       password = uri.password || ""
       database_name = File.basename(uri.path || "/")
-      connect_timeout = params.has_key?("connect_timeout") ? Time::Span.new(seconds: params["connect_timeout"].to_i) : nil
-      read_timeout = Time::Span.new(seconds: params.fetch("read_timeout", "30").to_i)
+      dns_timeout = Time::Span.new(seconds: (params["dns_timeout"]).to_i32) if params.has_key? "dns_timeout"
+      connect_timeout = Time::Span.new(seconds: (params["connect_timeout"]).to_i32) if params.has_key? "connect_timeout"
+      read_timeout = Time::Span.new(seconds: (params["read_timeout"]).to_i32) if params.has_key? "read_timeout"
+      write_timeout = Time::Span.new(seconds: (params["write_timeout"]).to_i32) if params.has_key? "write_timeout"
       isolation_level = params["isolation_level"]?
 
-      Options.new(host: host, port: port, user: user, password: password, database_name: database_name, connect_timeout: connect_timeout, read_timeout: read_timeout, isolation_level: isolation_level)
+      Options.new(host: host, port: port, user: user, password: password, database_name: database_name, dns_timeout: dns_timeout, connect_timeout: connect_timeout, read_timeout: read_timeout, write_timeout: write_timeout, isolation_level: isolation_level)
     end
   end
 
@@ -31,12 +33,13 @@ class TDS::Connection < DB::Connection
     super(options)
 
     begin
-      socket = TCPSocket.new(tds_options.host, tds_options.port, connect_timeout: tds_options.connect_timeout)
+      socket = TCPSocket.new(tds_options.host, tds_options.port, dns_timeout: tds_options.dns_timeout, connect_timeout: tds_options.connect_timeout)
     rescue ex : Socket::ConnectError
       raise DB::ConnectionRefused.new(cause: ex)
     end
     @socket = socket
     @socket.read_timeout = tds_options.read_timeout
+    @socket.write_timeout = tds_options.write_timeout
     case @version
     when Version::V9_0
       PacketIO.send(@socket, PacketIO::Type::PRE_LOGIN) do |io|
