@@ -33,6 +33,16 @@ describe TDS::PreparedStatement do
       statement.query 1
     end
   end
+  it "raises when query expects more arguments than specified" do
+    expect_raises(DB::Error, "Incorrect number of arguments") do
+      DATABASE.query_one "SELECT 1 FROM TEST WHERE c1 = ? OR c1 = ? OR c1 = ?", 1 { |rs| rs.read(Int32) }.should eq 2
+    end
+  end
+  it "raises when query expects less arguments than specified" do
+    expect_raises(DB::Error, "Incorrect number of arguments") do
+      DATABASE.query_one "SELECT 1 FROM TEST WHERE c1 = ?", 1, 2, 3 { |rs| rs.read(Int32) }.should eq 2
+    end
+  end
   it "handles query with question mark parameter and quoted string including a question mark" do
     DATABASE.query_one "SELECT 1 WHERE ? LIKE '%?'", "Wherefore art thou?" { |rs| rs.read(Int32) }.should eq 1
   end
@@ -53,7 +63,6 @@ describe TDS::PreparedStatement do
 
     DATABASE.query_one statement, 1, 1 { |rs| rs.read(Int32) }.should eq 1
   end
-
   it "handles query with $1 parameter" do
     DATABASE.query_one "SELECT 1 WHERE $1 LIKE '$%'", "$1,000.00" { |rs| rs.read(Int32) }.should eq 1
   end
@@ -64,20 +73,35 @@ describe TDS::PreparedStatement do
     DATABASE.query_one "SELECT $2 FROM TEST WHERE c1 = $1 OR c1 = $2", 1, 2 { |rs| rs.read(Int32) }.should eq 2
   end
   it "raises when query mixes use of ? and $-prefixed parameters" do
-    expect_raises(DB::Error, "Mixed use of parameter placeholders") do
+    expect_raises(DB::Error, "Incorrect use of parameter placeholders") do
       DATABASE.query_one "SELECT $2 FROM TEST WHERE c1 = $1 OR c1 = $2 OR $2 = ?", 1, 2, 3 { |rs| rs.read(Int32) }.should eq 2
     end
   end
-  it "handles query with escaped single quote in single-quoted literal" do
-    DATABASE.query_one "SELECT 1 WHERE $1 LIKE '''a%'", "'abc'" { |rs| rs.read(Int32) }.should eq 1
+  it "handles query with escaped single quote in single-quoted literal with $n parameter" do
+    DATABASE.query_one "SELECT 1 WHERE $1 LIKE '''$1a%'", "'$1abc'" { |rs| rs.read(Int32) }.should eq 1
   end
-  it "handles query with escaped double quote in double-quoted literal" do
-    DATABASE.query_one "SET QUOTED_IDENTIFIER OFF; SELECT 1 WHERE $1 LIKE \"\"\"a%\"", "\"abc" { |rs| rs.read(Int32) }.should eq 1
+  it "handles query with escaped single quote in single-quoted literal with ? paramater" do
+    DATABASE.query_one "SELECT 1 WHERE ? LIKE '''?a%'", "'?abc'" { |rs| rs.read(Int32) }.should eq 1
   end
-  it "handles query with double-quoted identifier" do
-    DATABASE.query_one "SET QUOTED_IDENTIFIER ON; SELECT 1 FROM \"TEST\"" { |rs| rs.read(Int32) }.should eq 1
+  it "handles query with escaped double quote in double-quoted literal with $n parameter" do
+    DATABASE.query_one "SET QUOTED_IDENTIFIER OFF; SELECT 1 WHERE $1 LIKE \"\"\"?a%\"", "\"?abc" { |rs| rs.read(Int32) }.should eq 1
   end
-  it "handles query with escaped right bracket in bracket-quoted identifier" do
-    DATABASE.query_one "SELECT CAST([TEST[]]].c1 AS INT) FROM TEST AS [TEST[]]] WHERE c1 = $1", 1 { |rs| rs.read(Int32) }.should eq 1
+  it "handles query with escaped double quote in double-quoted literal with ? parameter" do
+    DATABASE.query_one "SET QUOTED_IDENTIFIER OFF; SELECT 1 WHERE ? LIKE \"\"\"$1a%\"", "\"$1abc" { |rs| rs.read(Int32) }.should eq 1
+  end
+  it "handles query with double-quoted identifier with $n parameter" do
+    DATABASE.query_one "SET QUOTED_IDENTIFIER ON; SELECT 1 FROM \"TEST\" AS \"TEST$1\" WHERE 1 = $1", 1 { |rs| rs.read(Int32) }.should eq 1
+  end
+  it "handles query with double-quoted identifier with ? parameter" do
+    DATABASE.query_one "SET QUOTED_IDENTIFIER ON; SELECT 1 FROM \"TEST\" AS\"TEST?\" WHERE 1 = ?", 1 { |rs| rs.read(Int32) }.should eq 1
+  end
+  it "handles query with escaped right bracket in bracket-quoted identifier with $n parameter" do
+    DATABASE.query_one "SELECT CAST([TEST[]]$1].c1 AS INT) FROM TEST AS [TEST[]]$1] WHERE c1 = $1", 1 { |rs| rs.read(Int32) }.should eq 1
+  end
+  it "handles query with escaped right bracket in bracket-quoted identifier with ? parameter" do
+    DATABASE.query_one "SELECT CAST([TEST[]]?].c1 AS INT) FROM TEST AS [TEST[]]?] WHERE c1 = ?", 1 { |rs| rs.read(Int32) }.should eq 1
+  end
+  it "handles query with $n parameters referenced out of sequence" do
+    DATABASE.query_one "SELECT CAST(c1 AS INT) FROM TEST WHERE c1 = $3 AND $1 = 3 AND $2 = 2", 3, 2, 1{ |rs| rs.read(Int32) }.should eq 1
   end
 end
