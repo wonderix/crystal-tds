@@ -59,7 +59,7 @@ module TDS
           when unnamed_param = scanner.scan('?') # unnamed parameter placeholder
             index += 1
             value = "@PARAM_CRYSTAL_TDS_$#{index}__"
-            parameters << "#{value} #{arguments[index - 1].type_info.type}"
+            parameters << value
             unnamed_params_found = true
           when named_param = scanner.scan(/\$\d+/) # named parameter placeholder
             if names.has_key? named_param
@@ -67,27 +67,23 @@ module TDS
             else
               idx = named_param[1..].to_i # use the index in the named param to find the related argument to bind to
               value = "@PARAM_CRYSTAL_TDS_#{named_param}__"
-              parameters << "#{value} #{arguments[idx - 1].type_info.type}"
+              parameters << value
               names[named_param] = value                # save the named param in case its reused later in the query
               reordered_arguments << arguments[idx - 1] # argument values need to be reordered to match declaration order
             end
             named_params_found = true
           when value = scanner.scan(/./m) # all other tokens
           else
-            raise DB::Error.new("Unexpected character encountered when parsing statement: #{scanner.peek(1).inspect}")
+            raise DB::Error.new("Unexpected character encountered when parsing: #{scanner.peek(1).inspect} -- query = #{command.inspect}, args = #{arguments.map {|a| a.value}.inspect}")
           end
           string << value
         end
       end
 
-      raise DB::Error.new("Mixed use of parameter placeholders (?, $n) is not allowed: #{command}") if unnamed_params_found && named_params_found
-      raise DB::Error.new("Too many arguments specified for statement: #{command}") if parameters.size < arguments.size
+      raise DB::Error.new("Incorrect use of parameter placeholders: using both ? and $n style placeholders within single query not allowed, choose one placeholder style and use only that style within each query -- query = #{command.inspect}, args = #{arguments.map {|a| a.value}.inspect}") if unnamed_params_found && named_params_found
+      raise DB::Error.new("Incorrect number of arguments: expected #{parameters.size}, but received #{arguments.size} -- query = #{command.inspect}, args = #{arguments.map {|a| a.value}.inspect}") if parameters.size != arguments.size
 
-      reordered_arguments = arguments if unnamed_params_found
-
-      {statement, parameters, reordered_arguments}
-    rescue ex : ::IndexError
-      raise DB::Error.new("Too few arguments specified for statement: #{command}", ex)
+      {statement, parameters.map_with_index { |value, i| "#{value} #{arguments[i].type_info.type}" }, unnamed_params_found ? arguments : reordered_arguments}
     end
 
     def conn
