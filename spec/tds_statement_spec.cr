@@ -102,6 +102,32 @@ describe TDS::PreparedStatement do
     DATABASE.query_one "SELECT CAST([TEST[]]?].c1 AS INT) FROM TEST AS [TEST[]]?] WHERE c1 = ?", 1 { |rs| rs.read(Int32) }.should eq 1
   end
   it "handles query with $n parameters referenced out of sequence" do
-    DATABASE.query_one "SELECT CAST(c1 AS INT) FROM TEST WHERE c1 = $3 AND $1 = 3 AND $2 = 2", 3, 2, 1{ |rs| rs.read(Int32) }.should eq 1
+    DATABASE.query_one "SELECT CAST(c1 AS INT) FROM TEST WHERE c1 = $3 AND $1 = 3 AND $2 = 2", 3, 2, 1 { |rs| rs.read(Int32) }.should eq 1
+  end
+  it "handles query with multi-line single- and double-quoted values" do
+    string1 = "this is a multi-\r\n  line string\r\nthat should be\r\nsupported?\r\n"
+    string2 = "this is another multi-\r\n  line string\r\nthat should be\r\nsupported?\r\n"
+    statement = <<-SQL
+    SET QUOTED_IDENTIFIER OFF;
+
+    DECLARE @string1 NVARCHAR(MAX) = '#{string1}'
+    DECLARE @string2 NVARCHAR(MAX) = "#{string2}"
+
+    SELECT @string1 AS [test
+    multi-
+    line
+    column
+    heading
+    with
+    question
+    mark?]
+
+      FROM TEST
+
+     WHERE @string1 = ?
+       AND @string2 = ?
+       AND c1 = ?
+    SQL
+    DATABASE.query_one statement, string1, string2, 1 { |rs| rs.read(String) }.should eq string1
   end
 end
