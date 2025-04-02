@@ -43,7 +43,7 @@ module TDS
       unnamed_params_found, named_params_found = false, false
 
       statement = String.build(command.size) do |string|
-        scanner = StringScanner.new(command)
+        scanner = StringScanner.new(command.lstrip(" \t").rstrip)
         until scanner.eos?
           case
           when value = scanner.scan(/\[([^\]]|\]\])*\]/m) # bracket quoted value, including escaped right brackets such as `]]`
@@ -81,13 +81,17 @@ module TDS
               reordered_arguments << arguments[idx - 1]
             end
             named_params_found = true
-          when value = scanner.scan(/\s+/m) # one or more whitespace characters
-            # replace runs of whitespace characters with either a single newline
-            # if the value includes at least one newline or carriage return, or
-            # with a single space
+          when value = scanner.scan(/\s+/) # one or more whitespace characters
+            # when value includes a newline or carriage return, normalize to
+            # newlines and preserve all newlines to ensure line numbers
+            # continue to match original statement for diagnostics but remove
+            # all spaces and tabs, otherwise replace runs of spaces and tabs
+            # with a single space character
             if value.includes?("\n") || value.includes?("\r")
-              value = "\n"
+              # remove all spaces and tabs, replace CRLF with LF, and CR with LF
+              value = value.gsub(/[ \t]/, "").gsub("\r\n", "\n").gsub("\r", "\n")
             else
+              # replace runs of spaces and tabs with a single space character
               value = " "
             end
           when value = scanner.scan(/./m) # all other tokens
@@ -102,7 +106,7 @@ module TDS
       raise DB::Error.new("Incorrect use of parameter placeholders: using both ? and $n style placeholders within single query not allowed, choose one placeholder style and use only that style within each query -- query = #{command.inspect}, args = #{arguments.map { |a| a.value }.inspect}") if unnamed_params_found && named_params_found
       raise DB::Error.new("Incorrect number of arguments: expected #{parameters.size}, but received #{arguments.size} -- query = #{command.inspect}, args = #{arguments.map { |a| a.value }.inspect}") if parameters.size != arguments.size
 
-      {statement.strip, parameters.map_with_index { |value, i| "#{value} #{arguments[i].type_info.type}" }, unnamed_params_found ? arguments : reordered_arguments}
+      {statement, parameters.map_with_index { |value, i| "#{value} #{arguments[i].type_info.type}" }, unnamed_params_found ? arguments : reordered_arguments}
     end
 
     def conn

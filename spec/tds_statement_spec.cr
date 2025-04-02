@@ -108,7 +108,9 @@ describe TDS::PreparedStatement do
     string1 = "this is a multi-\r\n  line string\r\nthat should be\r\nsupported?\r\n"
     string2 = "this is another multi-\r\n  line string\r\nthat should be\r\nsupported?\r\n"
     statement = <<-SQL
-    SET QUOTED_IDENTIFIER OFF;
+
+
+       \t\tSET QUOTED_IDENTIFIER OFF;
 
     DECLARE @string1 NVARCHAR(MAX) = '#{string1}'
     DECLARE @string2 NVARCHAR(MAX) = "#{string2}"
@@ -124,9 +126,16 @@ describe TDS::PreparedStatement do
 
       FROM TEST
 
-     WHERE @string1 = ?
+     WHERE \t\t@string1 = ?
        AND @string2 = ?
        AND c1 = ?
+
+
+            \t\t
+
+            \t
+
+
     SQL
     DATABASE.query_one statement, string1, string2, 1 { |rs| rs.read(String) }.should eq string1
   end
