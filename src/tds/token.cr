@@ -71,10 +71,26 @@ module TDS::Token
   end
 
   struct LogInAck
+    getter prog_name : String
+    getter prog_version : String
+
+    def initialize(@prog_name : String, @prog_version : String)
+    end
+
     def self.from_io(io : IO)
       len = UInt16.from_io(io, ENCODING)
-      io.seek(len, IO::Seek::Current)
-      LogInAck.new
+      start = io.pos
+      UInt8.from_io(io, ENCODING)   # interface
+      io.seek(4, IO::Seek::Current) # tds_version
+      name_len = UInt8.from_io(io, ENCODING)
+      prog_name = UTF16_IO.read(io, UInt16.new(name_len), ENCODING).rstrip('\0')
+      major = UInt8.from_io(io, ENCODING)
+      minor = UInt8.from_io(io, ENCODING)
+      build_hi = UInt8.from_io(io, ENCODING)
+      build_lo = UInt8.from_io(io, ENCODING)
+      prog_version = "#{major}.#{minor}.#{(build_hi.to_i << 8) | build_lo.to_i}"
+      io.seek(len - (io.pos - start), IO::Seek::Current)
+      self.new(prog_name, prog_version)
     end
   end
 
