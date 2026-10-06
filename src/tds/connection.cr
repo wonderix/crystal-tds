@@ -9,6 +9,10 @@ class TDS::Connection < DB::Connection
   @version = Version::V7_1
   @socket : TCPSocket
   @packet_size = PacketIO::MIN_SIZE
+  # :inherit:
+  getter server_name : String? = nil
+  # :inherit:
+  getter server_version : String? = nil
 
   record Options, host : String, port : Int32, user : String, password : String, database_name : String, dns_timeout : Time::Span?, connect_timeout : Time::Span?, read_timeout : Time::Span?, write_timeout : Time::Span?, isolation_level : String? do
     def self.from_uri(uri : URI) : Options
@@ -56,6 +60,9 @@ class TDS::Connection < DB::Connection
             if token.type == 4_u8
               @packet_size = token.new_value.to_i
             end
+          when Token::LogInAck
+            @server_name = token.prog_name
+            @server_version = token.prog_version
           end
         end
       end
@@ -63,6 +70,11 @@ class TDS::Connection < DB::Connection
       raise ::Exception.new("Unsupported version #{@version}")
     end
     self.perform_exec "SET TRANSACTION ISOLATION LEVEL #{tds_options.isolation_level}" if tds_options.isolation_level
+  end
+
+  # :inherit:
+  def driver_name : String
+    "tds"
   end
 
   def send(type : PacketIO::Type, &block : IO ->)
